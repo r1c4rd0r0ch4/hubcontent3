@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { User, UserPlus, X, Calendar, MapPin, FileText, Camera } from 'lucide-react';
 import { uploadKycDocument, UploadResult, UploadError } from '../../lib/upload';
 import type { Database } from '../../lib/database.types';
+import { supabase } from '../../lib/supabase'; // Ensure supabase is imported
 
 type KycDocumentType = Database['public']['Enums']['kyc_document_type_enum'];
 
@@ -134,20 +135,22 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
 
   return (
     <div className="w-full max-w-md">
-      <div className="bg-white rounded-2xl shadow-xl p-8 relative">
+      <div className="bg-white rounded-2xl shadow-xl p-8 relative max-h-[90vh] flex flex-col">
         {onClose && (
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
             type="button"
           >
             <X className="w-5 h-5" />
           </button>
         )}
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Criar Conta</h2>
-        <p className="text-gray-600 mb-8">Junte-se à maior plataforma de conteúdo adulto</p>
+        <div className="flex-shrink-0 pb-4"> {/* Header wrapper */}
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Criar Conta</h2>
+          <p className="text-gray-600 mb-4">Junte-se à maior plataforma de conteúdo adulto</p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 flex-grow overflow-y-auto pr-2">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Tipo de Conta
@@ -190,7 +193,7 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all text-gray-900"
               placeholder="seunome"
             />
           </div>
@@ -205,7 +208,7 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all text-gray-900"
               placeholder="seu@email.com"
             />
           </div>
@@ -221,7 +224,7 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all text-gray-900"
               placeholder="Mínimo 6 caracteres"
             />
           </div>
@@ -240,7 +243,7 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required={userType === 'influencer'}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all text-gray-900"
                   placeholder="Seu nome completo"
                 />
               </div>
@@ -256,7 +259,7 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                     value={dateOfBirth}
                     onChange={(e) => setDateOfBirth(e.target.value)}
                     required={userType === 'influencer'}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all pr-10"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all pr-10 text-gray-900"
                   />
                   <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                 </div>
@@ -271,7 +274,7 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                   value={addressStreet}
                   onChange={(e) => setAddressStreet(e.target.value)}
                   required={userType === 'influencer'}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all text-gray-900"
                   placeholder="Rua, número, complemento"
                 />
                 <div className="grid grid-cols-2 gap-4">
@@ -280,7 +283,7 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                     value={addressCity}
                     onChange={(e) => setAddressCity(e.target.value)}
                     required={userType === 'influencer'}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all text-gray-900"
                     placeholder="Cidade"
                   />
                   <input
@@ -288,7 +291,7 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                     value={addressState}
                     onChange={(e) => setAddressState(e.target.value)}
                     required={userType === 'influencer'}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all text-gray-900"
                     placeholder="Estado"
                   />
                 </div>
@@ -298,7 +301,7 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                     value={addressZip}
                     onChange={(e) => setAddressZip(e.target.value)}
                     required={userType === 'influencer'}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all text-gray-900"
                     placeholder="CEP"
                   />
                   <input
@@ -306,7 +309,7 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                     value={addressCountry}
                     onChange={(e) => setAddressCountry(e.target.value)}
                     required={userType === 'influencer'}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all text-gray-900"
                     placeholder="País"
                   />
                 </div>
@@ -321,7 +324,7 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                   value={documentType}
                   onChange={(e) => setDocumentType(e.target.value)}
                   required={userType === 'influencer'}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all text-gray-900"
                 >
                   <option value="">Selecione</option>
                   <option value="RG">RG</option>
@@ -340,7 +343,7 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                   value={documentNumber}
                   onChange={(e) => setDocumentNumber(e.target.value)}
                   required={userType === 'influencer'}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all text-gray-900"
                   placeholder="Número do documento"
                 />
               </div>
@@ -434,7 +437,7 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
           </button>
         </form>
 
-        <div className="mt-6 text-center">
+        <div className="mt-6 text-center flex-shrink-0"> {/* Footer */}
           <button
             onClick={onToggle}
             className="text-pink-600 hover:text-pink-700 font-medium"

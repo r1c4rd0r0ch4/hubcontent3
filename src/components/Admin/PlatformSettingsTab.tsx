@@ -125,7 +125,7 @@ export const PlatformSettingsTab: React.FC = () => {
               name="host"
               value={settings?.host || ''}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm py-2 px-3"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm py-2 px-3 text-gray-900"
               required
             />
           </div>
@@ -140,7 +140,7 @@ export const PlatformSettingsTab: React.FC = () => {
               name="port"
               value={settings?.port || ''}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm py-2 px-3"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm py-2 px-3 text-gray-900"
               required
             />
           </div>
@@ -155,7 +155,7 @@ export const PlatformSettingsTab: React.FC = () => {
               name="username"
               value={settings?.username || ''}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm py-2 px-3"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm py-2 px-3 text-gray-900"
               required
             />
           </div>
@@ -170,7 +170,7 @@ export const PlatformSettingsTab: React.FC = () => {
               name="password"
               value={settings?.password || ''}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm py-2 px-3"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm py-2 px-3 text-gray-900"
               required
             />
           </div>
@@ -185,7 +185,7 @@ export const PlatformSettingsTab: React.FC = () => {
               name="from_email"
               value={settings?.from_email || ''}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm py-2 px-3"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500 sm:text-sm py-2 px-3 text-gray-900"
               required
             />
           </div>
