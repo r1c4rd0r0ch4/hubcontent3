@@ -24,7 +24,7 @@ interface AuthContextType {
       documentType: string; // RG, CPF, CNH
       documentNumber: string;
     }
-  ) => Promise<{ error: AuthError | null; data?: { user: User } }>;
+  ) => Promise<{ error: AuthError | null; data?: { user: User } }>; // Adicionado 'data' ao tipo de retorno
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>;
@@ -34,13 +34,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) { // Corrigido o tipo da prop children
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isInfluencerPendingApproval, setIsInfluencerPendingApproval] = useState(false);
 
+  // Função auxiliar para carregar o perfil e atualizar estados relacionados
   const loadProfileData = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -57,26 +58,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log(`[AuthContext] User ${data?.username} (ID: ${userId}) is admin: ${userIsAdmin}`);
     } catch (error) {
       console.error('Error loading profile:', error);
-      setProfile(null);
+      setProfile(null); // Garante que o perfil seja nulo em caso de erro
       setIsAdmin(false);
       setIsInfluencerPendingApproval(false);
     }
   };
 
   useEffect(() => {
+    // Verificação da sessão inicial
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       try {
         setUser(session?.user ?? null);
         if (session?.user) {
-          await loadProfileData(session.user.id);
+          await loadProfileData(session.user.id); // Aguarda o carregamento do perfil
         }
       } catch (error) {
         console.error("Error during initial session load:", error);
       } finally {
-        setLoading(false);
+        setLoading(false); // Sempre define loading como false após a verificação inicial
       }
     });
 
+    // Listener de mudança de estado de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       (async () => {
         try {
@@ -94,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsAdmin(false);
           setIsInfluencerPendingApproval(false);
         } finally {
-          setLoading(false);
+          setLoading(false); // Sempre define loading como false após a mudança de estado
         }
       })();
     });
@@ -116,10 +119,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   ) => {
     try {
+      // Basic validation before Supabase calls
       if (!email || email.trim().length === 0) {
         return { error: new AuthError('Email não pode ser vazio.') };
       }
-      if (!password || password.length < 6) {
+      if (!password || password.length < 6) { // Supabase requires min 6 chars
         return { error: new AuthError('A senha deve ter no mínimo 6 caracteres.') };
       }
       if (!username || username.trim().length === 0) {
@@ -144,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         username: username.trim(),
         user_type: userType,
         is_active: true,
-        account_status: userType === 'influencer' ? 'pending' : 'approved',
+        account_status: userType === 'influencer' ? 'pending' : 'approved', // Influencers start as pending
       };
 
       if (userType === 'influencer' && kycData) {
@@ -160,6 +164,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .insert(profileInsert);
 
       if (profileError) {
+        // In a production app, you might want to delete the auth user here
+        // if profile creation fails to prevent orphaned auth entries.
         return { error: new AuthError(profileError.message) };
       }
 
@@ -176,8 +182,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      await loadProfileData(data.user.id);
-      return { error: null, data: { user: data.user } };
+      await loadProfileData(data.user.id); // Usa a nova função auxiliar
+      return { error: null, data: { user: data.user } }; // Retorna os dados do usuário
     } catch (error) {
       return { error: error as AuthError };
     }
@@ -209,7 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      await loadProfileData(user.id);
+      await loadProfileData(user.id); // Usa a nova função auxiliar
       return { error: null };
     } catch (error) {
       return { error: error as Error };

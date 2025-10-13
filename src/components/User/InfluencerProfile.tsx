@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { ArrowLeft, Heart, MessageSquare, Instagram, Twitter, Play, Eye, Video, Flag } from 'lucide-react';
+import { ArrowLeft, Heart, MessageSquare, Instagram, Twitter, Play, Eye, Video, Flag, Loader2 } from 'lucide-react';
 import { Lightbox } from '../Shared/Lightbox';
 import { VideoPlayer } from '../Shared/VideoPlayer'; // This component is not used, but kept for consistency
 import { StreamingBookModal } from './StreamingBookModal';
@@ -256,11 +256,15 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
   };
 
   if (loading) {
-    return <div className="text-center py-12">Carregando...</div>;
+    return (
+      <div className="flex items-center justify-center text-primary text-lg py-12">
+        <Loader2 className="animate-spin mr-2" size={24} /> Carregando perfil do influencer...
+      </div>
+    );
   }
 
   if (!influencer) {
-    return <div className="text-center py-12">Influencer não encontrado</div>;
+    return <div className="text-center py-12 text-text">Influencer não encontrado</div>;
   }
 
   const visibleContents = contents.filter(c =>
@@ -271,14 +275,14 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
     <div>
       <button
         onClick={onBack}
-        className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
+        className="flex items-center gap-2 text-textSecondary hover:text-text mb-6 transition-colors"
       >
         <ArrowLeft className="w-5 h-5" />
         Voltar
       </button>
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
-        <div className="relative h-64 bg-gradient-to-br from-blue-400 to-purple-600">
+      <div className="bg-surface rounded-2xl shadow-xl overflow-hidden mb-8 border border-border">
+        <div className="relative h-64 bg-gradient-to-br from-secondary to-primary">
           {influencer.profile.cover_photo_url ? (
             <img
               src={influencer.profile.cover_photo_url}
@@ -289,7 +293,7 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
             <img
               src={influencer.profile.avatar_url}
               alt={influencer.profile.username}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover opacity-50"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-white text-8xl font-bold">
@@ -301,16 +305,16 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
         <div className="p-8">
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
             <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              <h1 className="text-3xl font-bold text-text mb-2">
                 {influencer.profile.full_name || `@${influencer.profile.username}`}
               </h1>
-              <p className="text-lg text-gray-600 mb-4">@{influencer.profile.username}</p>
+              <p className="text-lg text-textSecondary mb-4">@{influencer.profile.username}</p>
 
               {influencer.profile.bio && (
-                <p className="text-gray-700 mb-6">{influencer.profile.bio}</p>
+                <p className="text-textSecondary mb-6">{influencer.profile.bio}</p>
               )}
 
-              <div className="flex items-center gap-4 text-sm text-gray-600 mb-6">
+              <div className="flex items-center gap-4 text-sm text-textSecondary mb-6">
                 <span className="font-semibold">{influencer.total_subscribers} assinantes</span>
                 <span>•</span>
                 <span>{contents.length} posts</span>
@@ -322,7 +326,7 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
                     href={`https://instagram.com/${influencer.instagram.replace('@', '')}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-pink-600 hover:text-pink-700"
+                    className="text-accent hover:text-accent/90"
                   >
                     <Instagram className="w-6 h-6" />
                   </a>
@@ -332,7 +336,7 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
                     href={`https://twitter.com/${influencer.twitter.replace('@', '')}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-400 hover:text-pink-500"
+                    className="text-secondary hover:text-secondary/90"
                   >
                     <Twitter className="w-6 h-6" />
                   </a>
@@ -340,19 +344,19 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
               </div>
             </div>
 
-            <div className="bg-gray-50 rounded-lg p-6 min-w-[280px]">
+            <div className="bg-background rounded-xl p-6 min-w-[280px] border border-border">
               {influencer.is_subscribed ? (
                 <div>
-                  <div className="bg-green-100 text-green-800 px-4 py-2 rounded-lg text-center font-semibold mb-4">
+                  <div className="bg-success/20 text-success px-4 py-2 rounded-lg text-center font-semibold mb-4">
                     Você está inscrito
                   </div>
-                  <p className="text-sm text-gray-600 text-center mb-4">
+                  <p className="text-sm text-textSecondary text-center mb-4">
                     Válido até {new Date(influencer.subscription_expires!).toLocaleDateString('pt-BR')}
                   </p>
                   <div className="space-y-3">
                     <button
                       onClick={handleStartConversation}
-                      className="w-full flex items-center justify-center gap-2 bg-pink-600 text-white py-3 rounded-lg font-semibold hover:bg-pink-700 transition-colors"
+                      className="w-full flex items-center justify-center gap-2 bg-accent text-white py-3 rounded-lg font-semibold hover:bg-accent/90 transition-colors"
                     >
                       <MessageSquare className="w-5 h-5" />
                       Enviar Mensagem
@@ -360,7 +364,7 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
                     {streamingEnabled && (
                       <button
                         onClick={() => setShowStreamingModal(true)}
-                        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-pink-700 transition-all"
+                        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-accent text-white py-3 rounded-lg font-semibold hover:from-primary/90 hover:to-accent/90 transition-all"
                       >
                         <Video className="w-5 h-5" />
                         Reservar Streaming
@@ -371,18 +375,18 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
               ) : (
                 <div>
                   <div className="text-center mb-4">
-                    <span className="text-gray-600">Assinatura mensal</span>
-                    <div className="text-3xl font-bold text-gray-900 mt-2">
+                    <span className="text-textSecondary">Assinatura mensal</span>
+                    <div className="text-3xl font-bold text-text mt-2">
                       R$ {influencer.subscription_price.toFixed(2)}
                     </div>
                   </div>
                   <button
                     onClick={() => setShowSubscribeModal(true)}
-                    className="w-full bg-pink-600 text-white py-3 rounded-lg font-semibold hover:bg-pink-700 transition-colors"
+                    className="w-full bg-accent text-white py-3 rounded-lg font-semibold hover:bg-accent/90 transition-colors"
                   >
                     Assinar Agora
                   </button>
-                  <p className="text-xs text-gray-500 text-center mt-3">
+                  <p className="text-xs text-textSecondary text-center mt-3">
                     Acesse conteúdo exclusivo
                   </p>
                 </div>
@@ -393,19 +397,19 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
       </div>
 
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Conteúdo</h2>
+        <h2 className="text-2xl font-bold text-text">Conteúdo</h2>
       </div>
 
       {visibleContents.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg">
-          <p className="text-gray-600">Nenhum conteúdo disponível ainda</p>
+        <div className="text-center py-12 bg-background rounded-xl border border-border">
+          <p className="text-textSecondary">Nenhum conteúdo disponível ainda</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {visibleContents.map((content, index) => (
-            <div key={content.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+            <div key={content.id} className="bg-background rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-border">
               <div
-                className="relative aspect-video bg-gray-200 cursor-pointer group"
+                className="relative aspect-video bg-surface/50 cursor-pointer group"
                 onClick={() => {
                   setSelectedContent(index);
                   recordView(content.id);
@@ -437,7 +441,7 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
                   </div>
                 )}
                 {content.is_free && (
-                  <div className="absolute top-2 right-2 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
+                  <div className="absolute top-2 right-2 bg-success text-white px-3 py-1 rounded-full text-xs font-semibold">
                     Gratuito
                   </div>
                 )}
@@ -448,9 +452,9 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
                 </div>
               </div>
               <div className="p-4">
-                <h3 className="font-semibold text-gray-900 mb-2">{content.title}</h3>
+                <h3 className="font-semibold text-text mb-2">{content.title}</h3>
                 {content.description && (
-                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">{content.description}</p>
+                  <p className="text-sm text-textSecondary mb-3 line-clamp-2">{content.description}</p>
                 )}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
@@ -459,14 +463,14 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
                         e.stopPropagation();
                         handleLike(content.id);
                       }}
-                      className="flex items-center gap-1 text-gray-600 hover:text-red-500 transition-colors"
+                      className="flex items-center gap-1 text-textSecondary hover:text-error transition-colors"
                     >
                       <Heart
-                        className={`w-5 h-5 ${content.isLiked ? 'fill-red-500 text-red-500' : ''}`}
+                        className={`w-5 h-5 ${content.isLiked ? 'fill-error text-error' : ''}`}
                       />
                       <span className="text-sm font-semibold">{content.likes_count}</span>
                     </button>
-                    <div className="flex items-center gap-1 text-gray-600">
+                    <div className="flex items-center gap-1 text-textSecondary">
                       <Eye className="w-5 h-5" />
                       <span className="text-sm font-semibold">{content.total_views || 0}</span>
                     </div>
@@ -476,12 +480,12 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
                       e.stopPropagation();
                       handleReportContent(content.id);
                     }}
-                    className="flex items-center gap-1 text-gray-600 hover:text-red-500 transition-colors"
+                    className="flex items-center gap-1 text-textSecondary hover:text-error transition-colors"
                     title="Denunciar Conteúdo"
                   >
                     <Flag className="w-5 h-5" />
                   </button>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-textSecondary">
                     {new Date(content.created_at).toLocaleDateString('pt-BR')}
                   </span>
                 </div>
@@ -604,29 +608,29 @@ function SubscribeModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-md w-full p-6">
-        <h3 className="text-2xl font-bold mb-4">Assinar @{influencer.profile.username}</h3>
+      <div className="bg-surface rounded-lg max-w-md w-full p-6">
+        <h3 className="text-2xl font-bold text-text mb-4">Assinar @{influencer.profile.username}</h3>
 
-        <div className="bg-gray-50 rounded-lg p-4 mb-6">
+        <div className="bg-background rounded-lg p-4 mb-6 border border-border">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-gray-600">Valor mensal</span>
-            <div className="text-3xl font-bold text-gray-900 mt-2">
+            <span className="text-textSecondary">Valor mensal</span>
+            <div className="text-3xl font-bold text-text mt-2">
               R$ {influencer.subscription_price.toFixed(2)}
             </div>
           </div>
-          <p className="text-sm text-gray-600">Renovação automática mensal</p>
+          <p className="text-sm text-textSecondary">Renovação automática mensal</p>
         </div>
 
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-3">Método de Pagamento</label>
+          <label className="block text-sm font-medium text-textSecondary mb-3">Método de Pagamento</label>
           <div className="space-y-2">
             <button
               onClick={() => setPaymentMethod('credit_card')}
               className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
                 paymentMethod === 'credit_card'
-                  ? 'border-pink-500 bg-pink-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border hover:border-textSecondary/50'
+              } text-text`}
             >
               <span className="font-medium">Cartão de Crédito</span>
             </button>
@@ -634,9 +638,9 @@ function SubscribeModal({
               onClick={() => setPaymentMethod('pix')}
               className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
                 paymentMethod === 'pix'
-                  ? 'border-pink-500 bg-pink-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border hover:border-textSecondary/50'
+              } text-text`}
             >
               <span className="font-medium">PIX</span>
             </button>
@@ -644,9 +648,9 @@ function SubscribeModal({
               onClick={() => setPaymentMethod('paypal')}
               className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
                 paymentMethod === 'paypal'
-                  ? 'border-pink-500 bg-pink-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border hover:border-textSecondary/50'
+              } text-text`}
             >
               <span className="font-medium">PayPal</span>
             </button>
@@ -656,14 +660,14 @@ function SubscribeModal({
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+            className="flex-1 px-6 py-3 border border-border text-textSecondary rounded-lg font-semibold hover:bg-background transition-colors"
           >
             Cancelar
           </button>
           <button
             onClick={handleSubscribe}
             disabled={loading}
-            className="flex-1 px-6 py-3 bg-pink-600 text-white rounded-lg font-semibold hover:bg-pink-700 transition-colors disabled:opacity-50"
+            className="flex-1 px-6 py-3 bg-accent text-white rounded-lg font-semibold hover:bg-accent/90 transition-colors disabled:opacity-50"
           >
             {loading ? 'Processando...' : 'Confirmar'}
           </button>

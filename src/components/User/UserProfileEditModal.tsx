@@ -81,34 +81,34 @@ export function UserProfileEditModal({ onClose, onSuccess }: UserProfileEditModa
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">Editar Perfil</h2>
+      <div className="bg-surface rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-surface border-b border-border px-6 py-4 flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-text">Editar Perfil</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-surface/50 rounded-lg transition-colors"
           >
-            <X className="w-6 h-6 text-gray-600" />
+            <X className="w-6 h-6 text-textSecondary" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
           <div className="space-y-6">
-            <div className="border-b pb-8">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <div className="w-1 h-6 bg-pink-600 rounded-full"></div>
+            <div className="border-b border-border pb-8">
+              <h3 className="text-lg font-semibold text-text mb-4 flex items-center gap-2">
+                <div className="w-1 h-6 bg-accent rounded-full"></div>
                 Informações Pessoais
               </h3>
 
               <div className="space-y-4">
                 {uploadError && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+                  <div className="bg-error/10 border border-error/30 text-error px-4 py-3 rounded-lg mb-4">
                     {uploadError}
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-textSecondary mb-2">
                     Foto de Perfil
                   </label>
                   <div className="flex items-center gap-4">
@@ -116,11 +116,11 @@ export function UserProfileEditModal({ onClose, onSuccess }: UserProfileEditModa
                       <img
                         src={profileData.avatar_url}
                         alt="Avatar"
-                        className="w-20 h-20 rounded-full object-cover border-4 border-pink-100"
+                        className="w-20 h-20 rounded-full object-cover border-4 border-primary/20"
                       />
                     ) : (
-                      <div className="w-20 h-20 rounded-full bg-pink-100 flex items-center justify-center border-4 border-pink-200">
-                        <User className="w-10 h-10 text-pink-600" />
+                      <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center border-4 border-primary/30">
+                        <User className="w-10 h-10 text-primary" />
                       </div>
                     )}
                     <div className="flex-1 space-y-2">
@@ -134,40 +134,40 @@ export function UserProfileEditModal({ onClose, onSuccess }: UserProfileEditModa
                       />
                       <label
                         htmlFor="user-avatar-upload"
-                        className={`inline-flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors cursor-pointer ${
+                        className={`inline-flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors cursor-pointer ${
                           uploading ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
                       >
                         <Upload className="w-4 h-4" />
                         {uploading ? 'Enviando...' : 'Fazer Upload (máx 2MB)'}
                       </label>
-                      <p className="text-xs text-gray-500">Formatos: JPEG, PNG, WebP</p>
+                      <p className="text-xs text-textSecondary">Formatos: JPEG, PNG, WebP</p>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-textSecondary mb-2">
                     Nome Completo
                   </label>
                   <input
                     type="text"
                     value={profileData.full_name}
                     onChange={(e) => setProfileData({ ...profileData, full_name: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-text"
                     placeholder="Seu nome completo"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-textSecondary mb-2">
                     Bio
                   </label>
                   <textarea
                     value={profileData.bio}
                     onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
                     rows={4}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent resize-none"
+                    className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none bg-background text-text"
                     placeholder="Conte um pouco sobre você..."
                   />
                 </div>
@@ -179,14 +179,14 @@ export function UserProfileEditModal({ onClose, onSuccess }: UserProfileEditModa
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+              className="flex-1 px-6 py-3 border border-border text-textSecondary rounded-lg font-semibold hover:bg-surface/50 transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-pink-600 text-white rounded-lg font-semibold hover:bg-pink-700 transition-colors disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-accent text-white rounded-lg font-semibold hover:bg-accent/90 transition-colors disabled:opacity-50"
             >
               <Save className="w-5 h-5" />
               {loading ? 'Salvando...' : 'Salvar Alterações'}
