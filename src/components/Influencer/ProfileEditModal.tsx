@@ -133,8 +133,8 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between rounded-t-2xl">
+      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] shadow-2xl flex flex-col"> {/* Added flex flex-col */}
+        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between rounded-t-2xl flex-shrink-0"> {/* Added flex-shrink-0 */}
           <div className="flex items-center gap-3">
             <div className="bg-pink-100 p-2 rounded-lg">
               <User className="w-6 h-6 text-pink-600" />
@@ -152,7 +152,7 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
           </button>
         </div>
 
-        <div className="p-6 space-y-8">
+        <div className="p-6 space-y-8 flex-grow overflow-y-auto"> {/* Added flex-grow overflow-y-auto */}
           <div>
             <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <div className="w-1 h-6 bg-pink-600 rounded-full"></div>
@@ -381,7 +381,7 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
           </div>
         </div>
 
-        <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex gap-3 rounded-b-2xl">
+        <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex gap-3 rounded-b-2xl flex-shrink-0"> {/* Added flex-shrink-0 */}
           <button
             onClick={onClose}
             className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
