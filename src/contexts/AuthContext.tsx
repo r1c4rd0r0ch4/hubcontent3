@@ -55,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAdmin(userIsAdmin);
       setIsInfluencerPendingApproval(data?.user_type === 'influencer' && data?.account_status === 'pending');
       console.log(`[AuthContext] User ${data?.username} (ID: ${userId}) is admin: ${userIsAdmin}`);
+      console.log('[AuthContext] Profile data loaded:', data); // Debugging: Check fetched profile data
     } catch (error) {
       console.error('Error loading profile:', error);
       setProfile(null);
@@ -209,7 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      await loadProfileData(user.id);
+      await loadProfileData(user.id); // This should refetch and update the context
       return { error: null };
     } catch (error) {
       return { error: error as Error };
