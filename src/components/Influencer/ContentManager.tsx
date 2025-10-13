@@ -1,0 +1,547 @@
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
+import {
+  uploadContentImage,
+  uploadContentVideo,
+  uploadContentDocument,
+  validateImageFile,
+  validateVideoFile,
+  validateDocumentFile,
+  generateVideoThumbnail,
+  uploadVideoThumbnail,
+  formatFileSize
+} from '../../lib/upload';
+import { Plus, Image as ImageIcon, Video, FileText, Trash2, Eye, Heart, Upload, X, DollarSign } from 'lucide-react';
+import type { Database } from '../../lib/database.types';
+
+type Content = Database['public']['Tables']['content']['Row'];
+type ContentType = 'image' | 'video' | 'document';
+
+export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
+  const { profile } = useAuth();
+  const [contents, setContents] = useState<Content[]>([]);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadContents();
+  }, [profile]);
+
+  const loadContents = async () => {
+    if (!profile) return;
+
+    const { data, error } = await supabase
+      .from('content')
+      .select('*')
+      .eq('influencer_id', profile.id)
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      setContents(data);
+    }
+    setLoading(false);
+  };
+
+  const deleteContent = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir este conteúdo?')) return;
+
+    const { error } = await supabase
+      .from('content')
+      .delete()
+      .eq('id', id);
+
+    if (!error) {
+      loadContents();
+      onUpdate();
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-12">Carregando...</div>;
+  }
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">Meu Conteúdo</h2>
+        <button
+          onClick={() => setShowUploadModal(true)}
+          className="flex items-center gap-2 bg-pink-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-pink-700 transition-colors"
+        >
+          <Plus className="w-5 h-5" />
+          Upload Novo Conteúdo
+        </button>
+      </div>
+
+      {contents.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-lg">
+          <Video className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Nenhum conteúdo ainda</h3>
+          <p className="text-gray-600 mb-6">Comece fazendo upload de suas fotos, vídeos ou documentos</p>
+          <button
+            onClick={() => setShowUploadModal(true)}
+            className="bg-pink-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-pink-700 transition-colors"
+          >
+            Upload Primeiro Conteúdo
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {contents.map((content) => (
+            <div key={content.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+              <div className="relative aspect-video bg-gray-200 flex items-center justify-center">
+                {content.content_type === 'video' ? (
+                  <video
+                    src={content.file_url}
+                    className="w-full h-full object-cover"
+                    muted
+                    playsInline
+                    poster={content.thumbnail_url || ''}
+                    onError={(e) => {
+                      const target = e.target as HTMLVideoElement;
+                      target.poster = content.thumbnail_url || '';
+                    }}
+                  />
+                ) : content.content_type === 'image' ? (
+                  <img
+                    src={content.thumbnail_url || content.file_url}
+                    alt={content.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (content.thumbnail_url && target.src !== content.file_url) {
+                        target.src = content.file_url;
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-gray-500">
+                    <FileText className="w-16 h-16" />
+                    <span className="mt-2 text-sm font-medium">Documento</span>
+                  </div>
+                )}
+                <div className="absolute top-2 right-2 flex gap-2">
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    content.is_free ? 'bg-green-500 text-white' : 'bg-pink-500 text-white'
+                  }`}>
+                    {content.is_free ? 'Gratuito' : 'Pago'}
+                  </span>
+                  {content.is_purchasable && (
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-purple-600 text-white flex items-center gap-1">
+                      <DollarSign className="w-3 h-3" />
+                      {content.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </span>
+                  )}
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-900 text-white flex items-center gap-1">
+                    {content.content_type === 'video' ? <Video className="w-3 h-3" /> :
+                     content.content_type === 'image' ? <ImageIcon className="w-3 h-3" /> :
+                     <FileText className="w-3 h-3" />}
+                  </span>
+                </div>
+              </div>
+              <div className="p-4">
+                <h3 className="font-semibold text-gray-900 mb-1">{content.title}</h3>
+                {content.description && (
+                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">{content.description}</p>
+                )}
+                <div className="flex items-center justify-between text-sm text-gray-500 mb-3">
+                  <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1">
+                      <Eye className="w-4 h-4" />
+                      {content.views_count || 0}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Heart className="w-4 h-4" />
+                      {content.likes_count}
+                    </span>
+                  </div>
+                  <span className="text-xs">{new Date(content.created_at).toLocaleDateString('pt-BR')}</span>
+                </div>
+                <button
+                  onClick={() => deleteContent(content.id)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Excluir
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showUploadModal && (
+        <UploadModal
+          onClose={() => setShowUploadModal(false)}
+          onSuccess={() => {
+            loadContents();
+            onUpdate();
+            setShowUploadModal(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const { profile } = useAuth();
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [contentType, setContentType] = useState<ContentType>('image');
+  const [fileUrl, setFileUrl] = useState('');
+  const [thumbnailUrl, setThumbnailUrl] = useState('');
+  const [isFree, setIsFree] = useState(false);
+  const [isPurchasable, setIsPurchasable] = useState(false);
+  const [price, setPrice] = useState<number>(0);
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [uploadProgress, setUploadProgress] = useState('');
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !profile) return;
+
+    setUploadError('');
+    setUploadProgress('');
+
+    let validation;
+    let uploadFunction;
+    let bucketName: 'content-images' | 'content-videos' | 'content-documents';
+    let progressMessage: string;
+
+    if (contentType === 'image') {
+      validation = validateImageFile(file);
+      uploadFunction = uploadContentImage;
+      bucketName = 'content-images';
+      progressMessage = 'Fazendo upload da imagem...';
+    } else if (contentType === 'video') {
+      validation = validateVideoFile(file);
+      uploadFunction = uploadContentVideo;
+      bucketName = 'content-videos';
+      progressMessage = 'Fazendo upload do vídeo... Isso pode levar alguns minutos.';
+    } else { // contentType === 'document'
+      validation = validateDocumentFile(file);
+      uploadFunction = uploadContentDocument;
+      bucketName = 'content-documents';
+      progressMessage = 'Fazendo upload do documento...';
+    }
+
+    if (!validation.valid) {
+      setUploadError(validation.error || 'Arquivo inválido');
+      return;
+    }
+
+    setUploading(true);
+    setUploadProgress(progressMessage);
+
+    const { data, error } = await uploadFunction(file, profile.id);
+
+    if (error) {
+      setUploading(false);
+      setUploadProgress('');
+      setUploadError(error.message);
+      return;
+    }
+
+    if (data) {
+      setFileUrl(data.url);
+      setUploadError('');
+
+      if (contentType === 'image' || contentType === 'document') {
+        setThumbnailUrl(data.url); // For images and documents, file_url can be thumbnail_url
+      } else if (contentType === 'video') {
+        // Generate and upload thumbnail for video
+        setUploadProgress('Gerando thumbnail do vídeo...');
+        const { data: thumbnailBlob, error: thumbError } = await generateVideoThumbnail(file);
+
+        if (!thumbError && thumbnailBlob) {
+          const { data: thumbData, error: thumbUploadError } = await uploadVideoThumbnail(
+            thumbnailBlob,
+            profile.id,
+            data.path
+          );
+
+          if (!thumbUploadError && thumbData) {
+            setThumbnailUrl(thumbData.url);
+          } else if (thumbUploadError) {
+            console.error('Erro ao fazer upload da thumbnail:', thumbUploadError.message);
+            setUploadError('Erro ao fazer upload da thumbnail: ' + thumbUploadError.message);
+          }
+        } else if (thumbError) {
+          console.error('Erro ao gerar thumbnail:', thumbError);
+          setUploadError('Erro ao gerar thumbnail: ' + thumbError);
+        }
+      }
+    }
+
+    setUploading(false);
+    setUploadProgress('');
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile || !fileUrl) {
+      setUploadError('Por favor, faça upload do arquivo primeiro');
+      return;
+    }
+    if (isPurchasable && price <= 0) {
+      setUploadError('O preço deve ser maior que zero para conteúdo comprável.');
+      return;
+    }
+
+    setLoading(true);
+
+    const { error } = await supabase.from('content').insert({
+      influencer_id: profile.id,
+      title,
+      description,
+      content_type: contentType,
+      file_url: fileUrl,
+      thumbnail_url: thumbnailUrl || null,
+      is_free: isFree,
+      is_purchasable: isPurchasable,
+      price: isPurchasable ? price : 0,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      alert('Erro ao salvar conteúdo: ' + error.message);
+    } else {
+      onSuccess();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-2xl font-bold">Upload Novo Conteúdo</h3>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="w-6 h-6 text-gray-600" />
+            </button>
+          </div>
+
+          {uploadError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+              {uploadError}
+            </div>
+          )}
+
+          {uploadProgress && (
+            <div className="bg-pink-50 border border-pink-200 text-pink-700 px-4 py-3 rounded-lg mb-4">
+              {uploadProgress}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Título</label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                placeholder="Dê um título ao seu conteúdo"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                placeholder="Descreva seu conteúdo"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Conteúdo</label>
+              <div className="grid grid-cols-3 gap-4">
+                <button
+                  type="button"
+                  onClick={() => setContentType('image')}
+                  className={`flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all ${
+                    contentType === 'image'
+                      ? 'border-pink-500 bg-pink-50 text-pink-700'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <ImageIcon className="w-5 h-5" />
+                  Imagem
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContentType('video')}
+                  className={`flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all ${
+                    contentType === 'video'
+                      ? 'border-pink-500 bg-pink-50 text-pink-700'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <Video className="w-5 h-5" />
+                  Vídeo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContentType('document')}
+                  className={`flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all ${
+                    contentType === 'document'
+                      ? 'border-pink-500 bg-pink-50 text-pink-700'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <FileText className="w-5 h-5" />
+                  Documento
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Arquivo {contentType === 'image' ? '(Imagem)' : contentType === 'video' ? '(Vídeo)' : '(Documento)'}
+              </label>
+
+              {fileUrl && (
+                <div className="mb-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-700 font-semibold">✓ Arquivo enviado com sucesso!</p>
+                  {contentType === 'image' && (
+                    <img src={fileUrl} alt="Preview" className="mt-2 w-full h-40 object-cover rounded-lg" />
+                  )}
+                  {contentType === 'document' && (
+                    <div className="mt-2 flex items-center gap-2 text-gray-700">
+                      <FileText className="w-6 h-6" />
+                      <span>{fileUrl.split('/').pop()}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <input
+                type="file"
+                accept={
+                  contentType === 'image'
+                    ? 'image/*'
+                    : contentType === 'video'
+                    ? 'video/*'
+                    : '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar'
+                }
+                onChange={handleFileUpload}
+                disabled={uploading}
+                className="hidden"
+                id="content-file-upload"
+              />
+              <label
+                htmlFor="content-file-upload"
+                className={`inline-flex items-center gap-2 px-6 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors cursor-pointer font-semibold ${
+                  uploading ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                <Upload className="w-5 h-5" />
+                {uploading
+                  ? 'Enviando...'
+                  : contentType === 'image'
+                  ? `Upload da Imagem (máx ${formatFileSize(2 * 1024 * 1024)})`
+                  : contentType === 'video'
+                  ? `Upload do Vídeo (máx ${formatFileSize(50 * 1024 * 1024)})`
+                  : `Upload do Documento (máx ${formatFileSize(10 * 1024 * 1024)})`}
+              </label>
+              <p className="text-xs text-gray-500 mt-2">
+                {contentType === 'image'
+                  ? 'Formatos: JPEG, PNG, WebP'
+                  : contentType === 'video'
+                  ? 'Formatos: MP4, MOV, AVI, WebM'
+                  : 'Formatos: PDF, DOCX, XLSX, TXT, ZIP, RAR'}
+              </p>
+            </div>
+
+            {contentType === 'video' && thumbnailUrl && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Thumbnail do Vídeo</label>
+                <input
+                  type="url"
+                  value={thumbnailUrl}
+                  onChange={(e) => setThumbnailUrl(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                  placeholder="https://exemplo.com/thumbnail.jpg"
+                />
+              </div>
+            )}
+
+            <div className="flex items-center gap-3 bg-gray-50 p-4 rounded-lg">
+              <input
+                type="checkbox"
+                id="isFree"
+                checked={isFree}
+                onChange={(e) => setIsFree(e.target.checked)}
+                className="w-5 h-5 text-pink-600 rounded focus:ring-2 focus:ring-pink-500"
+              />
+              <label htmlFor="isFree" className="flex-1">
+                <span className="font-medium text-gray-900">Conteúdo Gratuito</span>
+                <p className="text-sm text-gray-600">Marque se este conteúdo deve ser visível para todos</p>
+              </label>
+            </div>
+
+            <div className="flex items-center gap-3 bg-gray-50 p-4 rounded-lg">
+              <input
+                type="checkbox"
+                id="isPurchasable"
+                checked={isPurchasable}
+                onChange={(e) => setIsPurchasable(e.target.checked)}
+                className="w-5 h-5 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
+              />
+              <label htmlFor="isPurchasable" className="flex-1">
+                <span className="font-medium text-gray-900">Venda Avulsa</span>
+                <p className="text-sm text-gray-600">Permitir que usuários comprem este conteúdo individualmente (mesmo sem assinatura)</p>
+              </label>
+            </div>
+
+            {isPurchasable && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Preço (BRL)</label>
+                <input
+                  type="number"
+                  value={price}
+                  onChange={(e) => setPrice(parseFloat(e.target.value))}
+                  min="0.01"
+                  step="0.01"
+                  required={isPurchasable}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="0.00"
+                />
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={loading || uploading}
+                className="flex-1 px-6 py-3 bg-pink-600 text-white rounded-lg font-semibold hover:bg-pink-700 transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Publicando...' : 'Publicar'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
