@@ -27,10 +27,11 @@ export const PlatformSettingsTab: React.FC = () => {
 
       if (error) throw error;
       setSettings(data);
-    } catch (err) {
+    } catch (err: any) { // Use 'any' to safely access error properties
       console.error('Error fetching SMTP settings:', err);
-      setError('Falha ao carregar configurações SMTP.');
-      toast.error('Falha ao carregar configurações SMTP.');
+      const errorMessage = err.message || 'Falha ao carregar configurações SMTP.';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -93,10 +94,11 @@ export const PlatformSettingsTab: React.FC = () => {
         setSettings(data); // Update state with the new ID
         toast.success('Configurações SMTP salvas com sucesso!');
       }
-    } catch (err) {
+    } catch (err: any) { // Use 'any' to safely access error properties
       console.error('Error saving SMTP settings:', err); // Log generic error
-      setError('Falha ao salvar configurações SMTP.');
-      toast.error('Falha ao salvar configurações SMTP.');
+      const errorMessage = err.message || 'Falha ao salvar configurações SMTP.';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setSaving(false);
     }
