@@ -134,7 +134,7 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
   };
 
   return (
-    <div className="w-full max-w-2xl"> {/* Changed from max-w-lg to max-w-2xl */}
+    <div className="w-full max-w-7xl"> {/* Alterado para max-w-7xl para maior largura */}
       <div className="bg-white rounded-2xl shadow-xl p-8 relative max-h-[90vh] flex flex-col">
         {onClose && (
           <button
