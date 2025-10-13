@@ -368,8 +368,8 @@ export function LandingPage() {
       </footer>
 
       {showAuthModal && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-surface rounded-lg max-w-md w-full border border-border">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-surface/90 backdrop-blur-lg rounded-2xl max-w-5xl w-full border border-border p-8 shadow-2xl"> {/* Ajustado max-w e adicionado p-8 */}
             {showSignUp ? (
               <SignUpForm
                 onClose={() => setShowAuthModal(false)}
