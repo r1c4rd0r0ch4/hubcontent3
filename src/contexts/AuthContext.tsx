@@ -3,6 +3,8 @@ import { User, AuthError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
 
+type Json = any; // Definido o tipo Json aqui para compatibilidade
+
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type AccountStatus = Database['public']['Enums']['account_status_enum'];
 
@@ -32,7 +34,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) { // Corrigido aqui
+export function AuthProvider({ children }: { ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
