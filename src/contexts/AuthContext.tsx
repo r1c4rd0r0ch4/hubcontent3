@@ -117,6 +117,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   ) => {
     try {
+      console.log('[AuthContext] Attempting signup for:', email, username, userType);
+
       if (!email || email.trim().length === 0) {
         return { error: new AuthError('Email não pode ser vazio.') };
       }
@@ -136,8 +138,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
       });
 
-      if (error) return { error };
-      if (!data.user) return { error: new AuthError('Falha ao criar usuário.') };
+      if (error) {
+        console.error('[AuthContext] Supabase Auth signUp error:', error.message); // Log the specific error message
+        return { error };
+      }
+      if (!data.user) {
+        console.error('[AuthContext] Supabase Auth signUp returned no user data.');
+        return { error: new AuthError('Falha ao criar usuário.') };
+      }
+
+      console.log('[AuthContext] User created in auth.users:', data.user.id);
 
       const profileInsert: Database['public']['Tables']['profiles']['Insert'] = {
         id: data.user.id,
@@ -161,8 +171,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .insert(profileInsert);
 
       if (profileError) {
+        console.error('[AuthContext] Error inserting profile:', profileError);
+        // Se a criação do perfil falhar, o usuário ainda existirá em auth.users.
+        // Para uma solução completa, você precisaria de uma função Supabase para
+        // deletar o usuário de auth.users neste ponto, mas isso não é possível
+        // diretamente do cliente sem privilégios de administrador.
         return { error: new AuthError(profileError.message) };
       }
+
+      console.log('[AuthContext] Profile created for user:', data.user.id);
 
       if (userType === 'influencer') {
         const { error: influencerError } = await supabase
@@ -173,13 +190,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
 
         if (influencerError) {
+          console.error('[AuthContext] Error inserting influencer profile:', influencerError);
           return { error: new AuthError(influencerError.message) };
         }
+        console.log('[AuthContext] Influencer profile created for user:', data.user.id);
       }
 
       await loadProfileData(data.user.id);
+      console.log('[AuthContext] Signup successful for user:', data.user.id);
       return { error: null, data: { user: data.user } };
     } catch (error) {
+      console.error('[AuthContext] Unexpected error during signup:', error);
       return { error: error as AuthError };
     }
   };

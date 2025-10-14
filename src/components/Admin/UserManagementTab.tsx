@@ -2,8 +2,8 @@ import React from 'react';
 import { useAdminData } from '../../hooks/useAdminData';
 import { AdminCard } from './AdminCard';
 import { supabase } from '../../lib/supabase';
-import { CheckCircle, XCircle, Loader2, Info } from 'lucide-react';
-import { toast } from 'react-hot-toast'; // Assuming react-hot-toast is installed
+import { CheckCircle, XCircle, Loader2, Info, Ban, Trash2, Unlock } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 export const UserManagementTab: React.FC = () => {
   const { profiles, loading, error, refetch } = useAdminData();
@@ -19,7 +19,6 @@ export const UserManagementTab: React.FC = () => {
 
       if (profileError) throw profileError;
 
-      // Log admin action
       await supabase.from('admin_logs').insert({
         admin_id: (await supabase.auth.getUser()).data.user?.id || '',
         action: `Updated user account status to ${status}`,
@@ -28,7 +27,7 @@ export const UserManagementTab: React.FC = () => {
       });
 
       toast.success(`Conta do usuário ${status === 'approved' ? 'aprovada' : 'rejeitada'} com sucesso!`);
-      refetch(); // Refresh data
+      refetch();
     } catch (err) {
       console.error('Error updating account status:', err);
       toast.error('Falha ao atualizar status da conta.');
@@ -37,8 +36,102 @@ export const UserManagementTab: React.FC = () => {
     }
   };
 
+  const handleBlockUser = async (userId: string) => {
+    setProcessingUserId(userId);
+    try {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('id', userId);
+
+      if (profileError) throw profileError;
+
+      await supabase.from('admin_logs').insert({
+        admin_id: (await supabase.auth.getUser()).data.user?.id || '',
+        action: `Blocked user`,
+        target_user_id: userId,
+        details: { is_active: false },
+      });
+
+      toast.success('Usuário bloqueado com sucesso!');
+      refetch();
+    } catch (err) {
+      console.error('Error blocking user:', err);
+      toast.error('Falha ao bloquear usuário.');
+    } finally {
+      setProcessingUserId(null);
+    }
+  };
+
+  const handleUnblockUser = async (userId: string) => {
+    setProcessingUserId(userId);
+    try {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ is_active: true, updated_at: new Date().toISOString() })
+        .eq('id', userId);
+
+      if (profileError) throw profileError;
+
+      await supabase.from('admin_logs').insert({
+        admin_id: (await supabase.auth.getUser()).data.user?.id || '',
+        action: `Unblocked user`,
+        target_user_id: userId,
+        details: { is_active: true },
+      });
+
+      toast.success('Usuário desbloqueado com sucesso!');
+      refetch();
+    } catch (err) {
+      console.error('Error unblocking user:', err);
+      toast.error('Falha ao desbloquear usuário.');
+    } finally {
+      setProcessingUserId(null);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este usuário? Esta ação é irreversível e removerá o perfil do aplicativo. O registro de autenticação no Supabase Auth pode precisar ser removido manualmente se não houver regras de cascata.')) {
+      return;
+    }
+    setProcessingUserId(userId);
+    try {
+      // Primeiro, delete registros relacionados se houver (ex: influencer_profiles, kyc_documents, content)
+      // Isso depende das suas regras de cascata no banco de dados. Se você tiver ON DELETE CASCADE,
+      // deletar o perfil pode ser suficiente. Caso contrário, você precisaria deletá-los explicitamente.
+      // Para simplicidade, assumimos cascata ou que deletar o perfil é suficiente por enquanto.
+
+      // Deletar da tabela profiles
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+
+      if (profileError) throw profileError;
+
+      // Nota: Deletar da tabela auth.users requer uma Supabase Function ou API de administrador.
+      // Por enquanto, estamos apenas deletando a entrada do perfil, efetivamente removendo-o do aplicativo.
+      // A entrada de autenticação do usuário permanecerá a menos que seja deletada manualmente via painel do Supabase ou função.
+
+      await supabase.from('admin_logs').insert({
+        admin_id: (await supabase.auth.getUser()).data.user?.id || '',
+        action: `Deleted user profile`,
+        target_user_id: userId,
+        details: { message: 'User profile deleted from app.' },
+      });
+
+      toast.success('Usuário excluído com sucesso!');
+      refetch();
+    } catch (err) {
+      console.error('Error deleting user:', err);
+      toast.error('Falha ao excluir usuário.');
+    } finally {
+      setProcessingUserId(null);
+    }
+  };
+
   const pendingInfluencers = profiles.filter(p => p.user_type === 'influencer' && p.account_status === 'pending');
-  const allUsers = profiles.filter(p => p.user_type !== 'influencer' || p.account_status !== 'pending');
+  const allRegisteredUsers = profiles; // useAdminData já busca todos os perfis
 
   if (loading) {
     return (
@@ -110,8 +203,8 @@ export const UserManagementTab: React.FC = () => {
         )}
       </AdminCard>
 
-      <AdminCard title="Todos os Usuários">
-        {allUsers.length === 0 ? (
+      <AdminCard title="Todos os Usuários Registrados">
+        {allRegisteredUsers.length === 0 ? (
           <p className="text-textSecondary italic">Nenhum usuário registrado.</p>
         ) : (
           <div className="overflow-x-auto">
@@ -128,6 +221,9 @@ export const UserManagementTab: React.FC = () => {
                     Status
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
+                    Ativo
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                     Registro
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
@@ -136,7 +232,7 @@ export const UserManagementTab: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-surface divide-y divide-border">
-                {allUsers.map((profile) => (
+                {allRegisteredUsers.map((profile) => (
                   <tr key={profile.id} className="hover:bg-surface/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -166,13 +262,62 @@ export const UserManagementTab: React.FC = () => {
                         {profile.account_status}
                       </span>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                        ${profile.is_active ? 'bg-success/20 text-success' : 'bg-error/20 text-error'}`}>
+                        {profile.is_active ? 'Sim' : 'Não'}
+                      </span>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-textSecondary">
                       {new Date(profile.created_at).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      {/* Add more actions here if needed, e.g., view profile, deactivate */}
-                      <button className="text-primary hover:text-primary/80 transition-colors">
-                        <Info className="w-5 h-5" />
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex gap-2">
+                      {profile.user_type === 'influencer' && profile.account_status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => handleAccountStatusUpdate(profile.id, 'approved')}
+                            disabled={processingUserId === profile.id}
+                            className="text-success hover:text-success/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Aprovar Influenciador"
+                          >
+                            {processingUserId === profile.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
+                          </button>
+                          <button
+                            onClick={() => handleAccountStatusUpdate(profile.id, 'rejected')}
+                            disabled={processingUserId === profile.id}
+                            className="text-error hover:text-error/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Rejeitar Influenciador"
+                          >
+                            {processingUserId === profile.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <XCircle className="w-5 h-5" />}
+                          </button>
+                        </>
+                      )}
+                      {profile.is_active ? (
+                        <button
+                          onClick={() => handleBlockUser(profile.id)}
+                          disabled={processingUserId === profile.id}
+                          className="text-warning hover:text-warning/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Bloquear Usuário"
+                        >
+                          {processingUserId === profile.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Ban className="w-5 h-5" />}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleUnblockUser(profile.id)}
+                          disabled={processingUserId === profile.id}
+                          className="text-primary hover:text-primary/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Desbloquear Usuário"
+                        >
+                          {processingUserId === profile.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Unlock className="w-5 h-5" />}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDeleteUser(profile.id)}
+                        disabled={processingUserId === profile.id}
+                        className="text-error hover:text-error/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Excluir Usuário"
+                      >
+                        {processingUserId === profile.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
                       </button>
                     </td>
                   </tr>

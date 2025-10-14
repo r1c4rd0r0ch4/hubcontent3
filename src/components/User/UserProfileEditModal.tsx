@@ -10,7 +10,7 @@ interface UserProfileEditModalProps {
 }
 
 export function UserProfileEditModal({ onClose, onSuccess }: UserProfileEditModalProps) {
-  const { profile } = useAuth();
+  const { profile, updateProfile } = useAuth(); // Import updateProfile
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
@@ -60,20 +60,17 @@ export function UserProfileEditModal({ onClose, onSuccess }: UserProfileEditModa
 
     setLoading(true);
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        full_name: profileData.full_name,
-        bio: profileData.bio,
-        avatar_url: profileData.avatar_url,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', profile.id);
+    // Use the updateProfile function from AuthContext
+    const { error } = await updateProfile({
+      full_name: profileData.full_name,
+      bio: profileData.bio,
+      avatar_url: profileData.avatar_url,
+    });
 
     if (error) {
       alert('Erro ao salvar perfil: ' + error.message);
     } else {
-      onSuccess();
+      onSuccess(); // This will close the modal and trigger any parent success logic
     }
 
     setLoading(false);
@@ -154,7 +151,7 @@ export function UserProfileEditModal({ onClose, onSuccess }: UserProfileEditModa
                     type="text"
                     value={profileData.full_name}
                     onChange={(e) => setProfileData({ ...profileData, full_name: e.target.value })}
-                    className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-text"
+                    className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent !bg-background text-text placeholder-textSecondary"
                     placeholder="Seu nome completo"
                   />
                 </div>
@@ -167,7 +164,7 @@ export function UserProfileEditModal({ onClose, onSuccess }: UserProfileEditModa
                     value={profileData.bio}
                     onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
                     rows={4}
-                    className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none bg-background text-text"
+                    className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none !bg-background text-text placeholder-textSecondary"
                     placeholder="Conte um pouco sobre você..."
                   />
                 </div>

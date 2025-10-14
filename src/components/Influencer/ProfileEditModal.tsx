@@ -133,8 +133,8 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] shadow-2xl flex flex-col"> {/* Added flex flex-col */}
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between rounded-t-2xl flex-shrink-0"> {/* Added flex-shrink-0 */}
+      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] shadow-2xl flex flex-col">
+        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between rounded-t-2xl flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="bg-pink-100 p-2 rounded-lg">
               <User className="w-6 h-6 text-pink-600" />
@@ -152,7 +152,7 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
           </button>
         </div>
 
-        <div className="p-6 space-y-8 flex-grow overflow-y-auto"> {/* Added flex-grow overflow-y-auto */}
+        <div className="p-6 space-y-8 flex-grow overflow-y-auto">
           <div>
             <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <div className="w-1 h-6 bg-pink-600 rounded-full"></div>
@@ -212,7 +212,7 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
                   type="text"
                   value={profileData.full_name}
                   onChange={(e) => setProfileData({ ...profileData, full_name: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900 placeholder-gray-500"
                   placeholder="Seu nome completo"
                 />
               </div>
@@ -260,7 +260,7 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
                   value={profileData.bio}
                   onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
                   rows={4}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent resize-none"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent resize-none text-gray-900 placeholder-gray-500"
                   placeholder="Conte um pouco sobre você..."
                 />
               </div>
@@ -286,7 +286,7 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
                   step="0.01"
                   value={influencerData.subscription_price}
                   onChange={(e) => setInfluencerData({ ...influencerData, subscription_price: parseFloat(e.target.value) || 0 })}
-                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900 placeholder-gray-500"
                   placeholder="0.00"
                 />
               </div>
@@ -313,7 +313,7 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
                   type="text"
                   value={influencerData.instagram}
                   onChange={(e) => setInfluencerData({ ...influencerData, instagram: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900 placeholder-gray-500"
                   placeholder="@seuusuario"
                 />
               </div>
@@ -326,7 +326,7 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
                   type="text"
                   value={influencerData.twitter}
                   onChange={(e) => setInfluencerData({ ...influencerData, twitter: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900 placeholder-gray-500"
                   placeholder="@seuusuario"
                 />
               </div>
@@ -339,7 +339,7 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
                   type="text"
                   value={influencerData.tiktok}
                   onChange={(e) => setInfluencerData({ ...influencerData, tiktok: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900 placeholder-gray-500"
                   placeholder="@seuusuario"
                 />
               </div>
@@ -360,7 +360,7 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
                   type="email"
                   value={influencerData.payment_email}
                   onChange={(e) => setInfluencerData({ ...influencerData, payment_email: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900 placeholder-gray-500"
                   placeholder="seu@email.com"
                 />
               </div>
@@ -373,7 +373,7 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
                   type="text"
                   value={influencerData.payment_pix}
                   onChange={(e) => setInfluencerData({ ...influencerData, payment_pix: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900 placeholder-gray-500"
                   placeholder="CPF, email, telefone ou chave aleatória"
                 />
               </div>
@@ -381,7 +381,7 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
           </div>
         </div>
 
-        <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex gap-3 rounded-b-2xl flex-shrink-0"> {/* Added flex-shrink-0 */}
+        <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex gap-3 rounded-b-2xl flex-shrink-0">
           <button
             onClick={onClose}
             className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-colors"

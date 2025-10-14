@@ -1,39 +1,56 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Database } from '../../lib/database.types';
-import { Sparkles, Upload, DollarSign, Users, Eye, Heart, Loader2, XCircle } from 'lucide-react';
+import { Sparkles, Upload, DollarSign, Users, Eye, Heart, Loader2, XCircle, Settings, User } from 'lucide-react';
+import { ProfileEditModal } from './ProfileEditModal';
 
 type Content = Database['public']['Tables']['content']['Row'];
 type Subscription = Database['public']['Tables']['subscriptions']['Row'];
+type InfluencerProfile = Database['public']['Tables']['influencer_profiles']['Row'];
 
 export function InfluencerDashboard() {
   const { profile, isInfluencerPendingApproval } = useAuth();
   const [content, setContent] = useState<Content[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [influencerProfileData, setInfluencerProfileData] = useState<InfluencerProfile | null>(null);
   const [loadingContent, setLoadingContent] = useState(true);
   const [loadingSubscriptions, setLoadingSubscriptions] = useState(true);
+  const [loadingInfluencerProfile, setLoadingInfluencerProfile] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
 
-  useEffect(() => {
-    if (profile && profile.user_type === 'influencer' && !isInfluencerPendingApproval) {
-      fetchInfluencerData();
+  const fetchInfluencerData = useCallback(async () => {
+    if (!profile) {
+      setLoadingContent(false);
+      setLoadingSubscriptions(false);
+      setLoadingInfluencerProfile(false);
+      return;
     }
-  }, [profile, isInfluencerPendingApproval]);
 
-  const fetchInfluencerData = async () => {
-    if (!profile) return;
+    setError(null);
 
-    // Fetch influencer profile to get its ID
+    // Fetch influencer profile to get its ID and other data
+    setLoadingInfluencerProfile(true);
     const { data: influencerData, error: influencerError } = await supabase
       .from('influencer_profiles')
-      .select('id')
+      .select('*')
       .eq('user_id', profile.id)
-      .single();
+      .maybeSingle();
 
-    if (influencerError || !influencerData) {
-      console.error('Error fetching influencer profile:', influencerError?.message);
+    if (influencerError) {
+      console.error('Error fetching influencer profile:', influencerError.message);
       setError('Não foi possível carregar o perfil do influenciador.');
+      setLoadingContent(false);
+      setLoadingSubscriptions(false);
+      setLoadingInfluencerProfile(false);
+      return;
+    }
+
+    setInfluencerProfileData(influencerData);
+    setLoadingInfluencerProfile(false);
+
+    if (!influencerData) {
       setLoadingContent(false);
       setLoadingSubscriptions(false);
       return;
@@ -76,6 +93,21 @@ export function InfluencerDashboard() {
     } finally {
       setLoadingSubscriptions(false);
     }
+  }, [profile]);
+
+  useEffect(() => {
+    if (profile && profile.user_type === 'influencer' && !isInfluencerPendingApproval) {
+      fetchInfluencerData();
+    }
+  }, [profile, isInfluencerPendingApproval, fetchInfluencerData]);
+
+  const handleModalClose = () => {
+    setShowEditProfileModal(false);
+  };
+
+  const handleModalSuccess = () => {
+    setShowEditProfileModal(false);
+    fetchInfluencerData(); // Re-fetch data after successful update
   };
 
   if (isInfluencerPendingApproval) {
@@ -93,11 +125,22 @@ export function InfluencerDashboard() {
     );
   }
 
+  const totalEarnings = subscriptions.reduce((sum, sub) => sum + (sub.price_paid || 0), 0);
+
   return (
     <div className="container mx-auto p-8 bg-background text-text min-h-[calc(100vh-64px)]">
-      <h2 className="text-4xl font-extrabold text-center mb-10 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-        Painel do Influenciador
-      </h2>
+      <div className="flex justify-between items-center mb-10">
+        <h2 className="text-4xl font-extrabold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+          Painel do Influenciador
+        </h2>
+        <button
+          onClick={() => setShowEditProfileModal(true)}
+          className="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-secondary transition-colors shadow-md"
+        >
+          <Settings className="w-5 h-5" />
+          Editar Perfil
+        </button>
+      </div>
 
       {error && <p className="text-error text-center mb-4">{error}</p>}
 
@@ -120,10 +163,44 @@ export function InfluencerDashboard() {
           <DollarSign className="text-success" size={32} />
           <div>
             <p className="text-textSecondary text-sm">Ganhos Estimados</p>
-            <p className="text-text text-2xl font-bold">R$ {(subscriptions.reduce((sum, sub) => sum + (sub.price_paid || 0), 0)).toFixed(2)}</p>
+            <p className="text-text text-2xl font-bold">R$ {totalEarnings.toFixed(2)}</p>
           </div>
         </div>
       </div>
+
+      {/* Display current profile info (avatar, bio, etc.) from AuthContext's profile */}
+      {profile && (
+        <div className="bg-surface rounded-xl p-6 shadow-lg border border-border mb-10">
+          <h3 className="text-2xl font-bold text-text mb-6 border-b border-border pb-4">Seu Perfil</h3>
+          <div className="flex items-center gap-6 mb-4">
+            {profile.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt="Avatar"
+                className="w-24 h-24 rounded-full object-cover border-4 border-primary"
+              />
+            ) : (
+              <div className="w-24 h-24 rounded-full bg-primary/20 flex items-center justify-center border-4 border-primary">
+                <User className="w-12 h-12 text-primary" />
+              </div>
+            )}
+            <div>
+              <p className="text-text text-xl font-semibold">{profile.username}</p>
+              <p className="text-textSecondary text-md">{profile.full_name}</p>
+              <p className="text-textSecondary text-sm mt-1">{profile.bio || 'Nenhuma biografia definida.'}</p>
+            </div>
+          </div>
+          {influencerProfileData && (
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-textSecondary">
+              <p><strong>Preço Assinatura:</strong> R$ {influencerProfileData.subscription_price?.toFixed(2) || '0.00'}</p>
+              {influencerProfileData.instagram && <p><strong>Instagram:</strong> <a href={`https://instagram.com/${influencerProfileData.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{influencerProfileData.instagram}</a></p>}
+              {influencerProfileData.twitter && <p><strong>Twitter:</strong> <a href={`https://twitter.com/${influencerProfileData.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{influencerProfileData.twitter}</a></p>}
+              {influencerProfileData.tiktok && <p><strong>TikTok:</strong> <a href={`https://tiktok.com/@${influencerProfileData.tiktok.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{influencerProfileData.tiktok}</a></p>}
+            </div>
+          )}
+        </div>
+      )}
+
 
       <div className="mb-10">
         <h3 className="text-2xl font-bold text-text mb-6 border-b border-border pb-4">Seu Conteúdo</h3>
@@ -198,6 +275,10 @@ export function InfluencerDashboard() {
           </div>
         )}
       </div>
+
+      {showEditProfileModal && (
+        <ProfileEditModal onClose={handleModalClose} onSuccess={handleModalSuccess} />
+      )}
     </div>
   );
 }
