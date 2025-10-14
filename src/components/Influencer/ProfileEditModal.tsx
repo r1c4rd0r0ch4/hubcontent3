@@ -14,6 +14,7 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [saveError, setSaveError] = useState('');
 
   const [profileData, setProfileData] = useState({
     full_name: '',
@@ -31,6 +32,9 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
     payment_pix: '',
   });
 
+  // State for the display value of the subscription price input (string for free typing)
+  const [displaySubscriptionPrice, setDisplaySubscriptionPrice] = useState('');
+
   useEffect(() => {
     if (profile) {
       setProfileData({
@@ -43,14 +47,31 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
     }
   }, [profile]);
 
+  // Effect to update the display value when the numeric subscription_price changes
+  useEffect(() => {
+    setDisplaySubscriptionPrice(
+      (influencerData.subscription_price || 0).toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    );
+  }, [influencerData.subscription_price]);
+
+
   const loadInfluencerData = async () => {
     if (!profile) return;
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('influencer_profiles')
       .select('*')
       .eq('user_id', profile.id)
       .maybeSingle();
+
+    if (error) {
+      console.error('Error loading influencer data:', error);
+      setSaveError('Erro ao carregar dados do influenciador.');
+      return;
+    }
 
     if (data) {
       setInfluencerData({
@@ -61,6 +82,24 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
         payment_email: data.payment_email || '',
         payment_pix: data.payment_pix || '',
       });
+      // Also update the display state for the input
+      setDisplaySubscriptionPrice(
+        (data.subscription_price || 0).toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+      );
+    } else {
+      // If no influencer profile exists, initialize with defaults
+      setInfluencerData({
+        subscription_price: 0,
+        instagram: '',
+        twitter: '',
+        tiktok: '',
+        payment_email: '',
+        payment_pix: '',
+      });
+      setDisplaySubscriptionPrice('0,00');
     }
   };
 
@@ -110,24 +149,98 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
     }
   };
 
+  const handleSubscriptionPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let input = e.target.value;
+
+    // Update the display state immediately with what the user typed
+    setDisplaySubscriptionPrice(input);
+
+    // Clean the input for numeric parsing
+    // Remove all non-digit characters except for the first comma/dot
+    input = input.replace(/[^0-9,.]/g, '');
+    // Replace comma with dot for parsing
+    input = input.replace(',', '.');
+
+    // Ensure only one dot for decimals
+    const parts = input.split('.');
+    if (parts.length > 2) {
+      input = parts[0] + '.' + parts.slice(1).join('');
+    }
+
+    let parsedValue = parseFloat(input);
+    if (isNaN(parsedValue)) {
+      parsedValue = 0;
+    }
+
+    // Update the numeric state
+    setInfluencerData((prev) => ({ ...prev, subscription_price: parsedValue }));
+  };
+
   const handleSave = async () => {
-    if (!profile) return;
+    if (!profile) {
+      setSaveError('Nenhum perfil de usuário logado.');
+      return;
+    }
 
     setLoading(true);
+    setSaveError(''); // Clear previous errors
 
+    console.log('[ProfileEditModal] Attempting to save profileData:', profileData);
     const { error: profileError } = await updateProfile(profileData);
 
-    const { error: influencerError } = await supabase
+    if (profileError) {
+      console.error('[ProfileEditModal] Error saving main profile:', profileError);
+      setSaveError(`Erro ao salvar perfil principal: ${profileError.message}`);
+      setLoading(false);
+      return; // Stop if main profile save fails
+    }
+    console.log('[ProfileEditModal] Main profile saved successfully.');
+
+    // Now attempt to save influencer data
+    console.log('[ProfileEditModal] Attempting to save influencerData:', influencerData);
+    console.log('[ProfileEditModal] Target user_id for influencer_profiles update:', profile.id);
+
+    // Check if an influencer profile already exists for this user
+    const { data: existingInfluencerProfile, error: fetchError } = await supabase
       .from('influencer_profiles')
-      .update(influencerData)
-      .eq('user_id', profile.id);
+      .select('id')
+      .eq('user_id', profile.id)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error('[ProfileEditModal] Error fetching existing influencer profile:', fetchError);
+      setSaveError(`Erro ao verificar perfil do influenciador: ${fetchError.message}`);
+      setLoading(false);
+      return;
+    }
+
+    let influencerError = null;
+    if (existingInfluencerProfile) {
+      // Update existing influencer profile
+      const { error } = await supabase
+        .from('influencer_profiles')
+        .update(influencerData)
+        .eq('user_id', profile.id);
+      influencerError = error;
+      console.log('[ProfileEditModal] Influencer profile UPDATE result:', { data: null, error: influencerError });
+    } else {
+      // This case should ideally not happen if signup creates the profile, but as a fallback:
+      console.warn('[ProfileEditModal] No existing influencer profile found, attempting to INSERT.');
+      const { error } = await supabase
+        .from('influencer_profiles')
+        .insert({ ...influencerData, user_id: profile.id });
+      influencerError = error;
+      console.log('[ProfileEditModal] Influencer profile INSERT result:', { data: null, error: influencerError });
+    }
 
     setLoading(false);
 
-    if (!profileError && !influencerError) {
-      onSuccess();
+    if (influencerError) {
+      console.error('Erro ao salvar dados do influenciador:', influencerError);
+      setSaveError(`Erro ao salvar configurações do influenciador: ${influencerError.message}`);
     } else {
-      alert('Erro ao salvar configurações');
+      console.log('[ProfileEditModal] Influencer data saved successfully.');
+      onSuccess();
     }
   };
 
@@ -153,6 +266,11 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
         </div>
 
         <div className="p-6 space-y-8 flex-grow overflow-y-auto">
+          {saveError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+              {saveError}
+            </div>
+          )}
           <div>
             <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <div className="w-1 h-6 bg-pink-600 rounded-full"></div>
@@ -281,18 +399,24 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
                   R$
                 </span>
                 <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={influencerData.subscription_price}
-                  onChange={(e) => setInfluencerData({ ...influencerData, subscription_price: parseFloat(e.target.value) || 0 })}
+                  type="text"
+                  value={displaySubscriptionPrice} // Use the display state for free typing
+                  onChange={handleSubscriptionPriceChange}
+                  onBlur={() => { // Format on blur for final presentation
+                    setDisplaySubscriptionPrice(
+                      (influencerData.subscription_price || 0).toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    );
+                  }}
                   className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900 placeholder-gray-500"
-                  placeholder="0.00"
+                  placeholder="0,00"
                 />
               </div>
               <div className="mt-2 bg-pink-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-sm text-blue-800">
-                  <span className="font-semibold">Você receberá:</span> R$ {(influencerData.subscription_price * 0.8).toFixed(2)} por assinante (80%)
+                  <span className="font-semibold">Você receberá:</span> R$ {(influencerData.subscription_price * 0.8).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} por assinante (80%)
                 </p>
                 <p className="text-xs text-pink-600 mt-1">Taxa da plataforma: 20%</p>
               </div>

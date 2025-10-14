@@ -163,7 +163,7 @@ export function InfluencerDashboard() {
           <DollarSign className="text-success" size={32} />
           <div>
             <p className="text-textSecondary text-sm">Ganhos Estimados</p>
-            <p className="text-text text-2xl font-bold">R$ {totalEarnings.toFixed(2)}</p>
+            <p className="text-text text-2xl font-bold">R$ {totalEarnings.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
         </div>
       </div>
@@ -192,7 +192,7 @@ export function InfluencerDashboard() {
           </div>
           {influencerProfileData && (
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-textSecondary">
-              <p><strong>Preço Assinatura:</strong> R$ {influencerProfileData.subscription_price?.toFixed(2) || '0.00'}</p>
+              <p><strong>Preço Assinatura:</strong> R$ {(influencerProfileData.subscription_price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               {influencerProfileData.instagram && <p><strong>Instagram:</strong> <a href={`https://instagram.com/${influencerProfileData.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{influencerProfileData.instagram}</a></p>}
               {influencerProfileData.twitter && <p><strong>Twitter:</strong> <a href={`https://twitter.com/${influencerProfileData.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{influencerProfileData.twitter}</a></p>}
               {influencerProfileData.tiktok && <p><strong>TikTok:</strong> <a href={`https://tiktok.com/@${influencerProfileData.tiktok.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{influencerProfileData.tiktok}</a></p>}
@@ -265,7 +265,7 @@ export function InfluencerDashboard() {
                         {sub.status}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-text">R$ {sub.price_paid?.toFixed(2) || '0.00'}</td>
+                    <td className="py-3 px-4 text-text">R$ {(sub.price_paid || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td className="py-3 px-4 text-text">{new Date(sub.start_date).toLocaleDateString()}</td>
                     <td className="py-3 px-4 text-text">{sub.end_date ? new Date(sub.end_date).toLocaleDateString() : 'N/A'}</td>
                   </tr>
