@@ -45,7 +45,9 @@ export const KycDocumentsModal: React.FC<KycDocumentsModalProps> = ({ userId, us
 
       if (error) throw error;
       console.log(`[KycDocumentsModal] Fetched ${data?.length} documents. Example file_url:`, data?.[0]?.file_url);
+      console.log('[KycDocumentsModal] Documents fetched:', data); // Log all fetched documents
       setKycDocuments(data || []);
+      console.log('[KycDocumentsModal] State kycDocuments updated after fetch:', data?.map(d => ({ id: d.id, status: d.status })));
     } catch (err: any) {
       console.error('[KycDocumentsModal] Error fetching KYC documents for user:', err);
       setError(err.message || 'Falha ao carregar documentos KYC.');
@@ -92,6 +94,9 @@ export const KycDocumentsModal: React.FC<KycDocumentsModalProps> = ({ userId, us
       `;
 
     try {
+      // Log the exact URL that Supabase client will try to invoke
+      const functionUrl = `${supabase.supabaseUrl}/functions/v1/send-email`;
+      console.log(`[KycDocumentsModal] Attempting to invoke Edge Function at URL: ${functionUrl}`);
       console.log(`[KycDocumentsModal] Invoking send-email function for user ${targetUserId} with status ${status}.`);
       const { data, error } = await supabase.functions.invoke('send-email', {
         body: {
@@ -103,12 +108,16 @@ export const KycDocumentsModal: React.FC<KycDocumentsModalProps> = ({ userId, us
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[KycDocumentsModal] Error from send-email function invocation:', error);
+        throw error;
+      }
       console.log('[KycDocumentsModal] Email function invoked successfully:', data);
       toast.success('E-mail de notificação enviado com sucesso!');
     } catch (err) {
       console.error('[KycDocumentsModal] Error invoking send-email function:', err);
       toast.error('Falha ao enviar e-mail de notificação.');
+      throw err; // Re-throw the error so handleKycStatusUpdate can catch it
     }
   };
 
@@ -124,24 +133,14 @@ export const KycDocumentsModal: React.FC<KycDocumentsModalProps> = ({ userId, us
 
       if (fetchError) throw fetchError;
 
-      const { error: kycError } = await supabase
+      const { data: updateData, error: kycError } = await supabase
         .from('kyc_documents')
         .update({ status: status, updated_at: new Date().toISOString() })
-        .eq('id', docId);
+        .eq('id', docId)
+        .select(); // Select the updated row to confirm
 
       if (kycError) throw kycError;
-
-      // If KYC is approved, update the user's account_status to 'approved'
-      if (status === 'approved' && docData?.user_id) {
-        console.log(`[KycDocumentsModal] KYC approved, updating profile ${docData.user_id} account_status to 'approved'.`);
-        const { error: profileUpdateError } = await supabase
-          .from('profiles')
-          .update({ account_status: 'approved', updated_at: new Date().toISOString() })
-          .eq('id', docData.user_id);
-
-        if (profileUpdateError) throw profileUpdateError;
-        onKycStatusChange(); // Notify parent to refetch profiles
-      }
+      console.log('[KycDocumentsModal] KYC document status updated in DB:', updateData); // Log DB update result
 
       await supabase.from('admin_logs').insert({
         admin_id: (await supabase.auth.getUser()).data.user?.id || '',
@@ -150,8 +149,10 @@ export const KycDocumentsModal: React.FC<KycDocumentsModalProps> = ({ userId, us
         details: { document_id: docId, new_status: status, rejection_reason: reason || null },
       });
 
+      // Show success toast for DB update immediately
       toast.success(`Documento KYC ${status === 'approved' ? 'aprovado' : 'rejeitado'} com sucesso!`);
 
+      // Attempt to send email. If it fails, the error will be caught below.
       await sendKycStatusEmail(
         userEmail,
         userName,
@@ -161,15 +162,20 @@ export const KycDocumentsModal: React.FC<KycDocumentsModalProps> = ({ userId, us
         reason
       );
 
-      fetchKycDocuments(); // Refetch documents for this user
     } catch (err) {
-      console.error('[KycDocumentsModal] Error updating KYC status:', err);
-      toast.error('Falha ao atualizar status do documento KYC.');
+      console.error('[KycDocumentsModal] Error during KYC status update or email sending:', err);
+      // The toast for email failure is already handled in sendKycStatusEmail
+      // The toast for KYC update success/failure is handled here
+      if (!String(err).includes('Falha ao enviar e-mail')) { // Avoid duplicate toast if email failed
+        toast.error('Falha ao atualizar status do documento KYC.');
+      }
     } finally {
       setProcessingDocId(null);
       setShowRejectModal(false);
       setCurrentDocToReject(null);
       setRejectionReason('');
+      console.log('[KycDocumentsModal] Calling fetchKycDocuments() to refresh UI in finally block.');
+      fetchKycDocuments(); // Ensure UI refresh always happens
     }
   };
 
@@ -196,7 +202,7 @@ export const KycDocumentsModal: React.FC<KycDocumentsModalProps> = ({ userId, us
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto pr-2">
             {kycDocuments.map((doc) => {
-              console.log(`[KycDocumentsModal] Document ID: ${doc.id}, File URL: ${doc.file_url}`); // Debug log for file_url
+              console.log(`[KycDocumentsModal] Document ID: ${doc.id}, File URL: ${doc.file_url}, Current Status: ${doc.status}`); // Debug log for file_url and status
               return (
                 <div key={doc.id} className="bg-background p-5 rounded-lg border border-border shadow-sm flex flex-col">
                   <p className="text-lg font-semibold text-text mb-2">Tipo: <span className="capitalize">{doc.document_type.replace(/_/g, ' ')}</span></p>

@@ -12,7 +12,10 @@ interface EmailPayload {
 }
 
 serve(async (req) => {
+  console.log('[send-email Edge Function] Function started.');
+
   if (req.method !== 'POST') {
+    console.warn('[send-email Edge Function] Method Not Allowed:', req.method);
     return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
       status: 405,
       headers: { 'Content-Type': 'application/json' },
@@ -22,8 +25,10 @@ serve(async (req) => {
   try {
     const payload: EmailPayload = await req.json();
     const { to, subject, body, userId, status } = payload;
+    console.log('[send-email Edge Function] Received payload:', { to, subject, userId, status, bodyLength: body.length });
 
     if (!to || !subject || !body || !userId || !status) {
+      console.error('[send-email Edge Function] Missing required fields in payload.');
       return new Response(JSON.stringify({ error: 'Missing required fields: to, subject, body, userId, status' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
@@ -41,8 +46,10 @@ serve(async (req) => {
         },
       }
     );
+    console.log('[send-email Edge Function] Supabase client initialized.');
 
     // Fetch SMTP settings from the database
+    console.log('[send-email Edge Function] Attempting to fetch SMTP settings...');
     const { data: smtpSettings, error: smtpError } = await supabase
       .from('smtp_settings')
       .select('*')
@@ -56,8 +63,10 @@ serve(async (req) => {
         headers: { 'Content-Type': 'application/json' },
       });
     }
+    console.log('[send-email Edge Function] SMTP settings fetched successfully. Host:', smtpSettings.host, 'Port:', smtpSettings.port);
 
     // Fetch user's profile to get full_name for a more personalized email, if available
+    console.log('[send-email Edge Function] Attempting to fetch user profile for personalization...');
     const { data: userProfile, error: profileError } = await supabase
       .from('profiles')
       .select('full_name')
@@ -67,10 +76,13 @@ serve(async (req) => {
     if (profileError || !userProfile) {
       console.warn('Failed to fetch user profile for email personalization:', profileError?.message || 'User not found');
       // Continue without full_name if not found
+    } else {
+      console.log('[send-email Edge Function] User profile fetched. Full Name:', userProfile.full_name);
     }
 
     const client = new SmtpClient();
     try {
+      console.log('[send-email Edge Function] Connecting to SMTP server...');
       await client.connect({
         hostname: smtpSettings.host,
         port: smtpSettings.port,
@@ -78,6 +90,7 @@ serve(async (req) => {
         username: smtpSettings.username,
         password: smtpSettings.password,
       });
+      console.log('[send-email Edge Function] Connected to SMTP server. Sending email...');
 
       await client.send({
         from: smtpSettings.from_email,
@@ -87,23 +100,24 @@ serve(async (req) => {
         html: true, // Indicate that the content is HTML
       });
 
-      console.log(`Email sent to ${to} for user ${userId} with status ${status}`);
+      console.log(`[send-email Edge Function] Email sent successfully to ${to} for user ${userId} with status ${status}`);
 
       return new Response(JSON.stringify({ message: 'Email sent successfully' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
     } catch (emailError: any) {
-      console.error('Error sending email:', emailError);
+      console.error('[send-email Edge Function] Error sending email:', emailError.message, emailError);
       return new Response(JSON.stringify({ error: `Failed to send email: ${emailError.message}` }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
       });
     } finally {
+      console.log('[send-email Edge Function] Closing SMTP client connection.');
       await client.close();
     }
   } catch (error: any) {
-    console.error('General error in send-email function:', error);
+    console.error('[send-email Edge Function] General error in send-email function:', error.message, error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
