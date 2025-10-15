@@ -45,17 +45,21 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
   };
 
   const uploadKycDocuments = async (userId: string) => {
-    const uploads = [];
     const uploadErrors: string[] = [];
 
     const uploadAndSetStatus = async (file: File | null, type: KycDocumentType, setter: React.Dispatch<React.SetStateAction<{ url: string; path: string } | null>>) => {
       if (file) {
+        console.log(`[SignUpForm] Tentando fazer upload do documento ${type} para Storage...`);
         const { data, error: uploadError } = await uploadKycDocument(file, userId, type);
+        
         if (uploadError) {
+          console.error(`[SignUpForm] Erro ao fazer upload do documento ${type} para Storage:`, uploadError);
           uploadErrors.push(`Erro ao enviar ${type}: ${uploadError.message}`);
         } else if (data) {
+          console.log(`[SignUpForm] Documento ${type} enviado para Storage com sucesso. URL: ${data.url}, Path: ${data.path}`);
           setter(data);
-          // Also insert into kyc_documents table
+          
+          console.log(`[SignUpForm] Tentando registrar documento ${type} no DB para user_id: ${userId}...`);
           const { error: dbError } = await supabase.from('kyc_documents').insert({
             user_id: userId,
             document_type: type,
@@ -64,7 +68,10 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
             status: 'pending',
           });
           if (dbError) {
+            console.error(`[SignUpForm] Erro ao registrar documento ${type} no DB:`, dbError);
             uploadErrors.push(`Erro ao registrar ${type} no DB: ${dbError.message}`);
+          } else {
+            console.log(`[SignUpForm] Documento ${type} registrado no DB com sucesso.`);
           }
         }
       }
@@ -109,18 +116,24 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
       };
     }
 
+    console.log('[SignUpForm] Iniciando processo de cadastro...');
     const { error: signUpError, data: userData } = await signUp(email, password, username, userType, kycData);
 
     if (signUpError) {
+      console.error('[SignUpForm] Erro no cadastro do usuário:', signUpError);
       setError(signUpError.message);
       setLoading(false);
       return;
     }
+    console.log('[SignUpForm] Usuário cadastrado com sucesso:', userData?.user?.id);
 
     if (userType === 'influencer' && userData?.user?.id) {
+      console.log('[SignUpForm] Usuário é influenciador, iniciando upload de documentos KYC...');
       try {
         await uploadKycDocuments(userData.user.id);
+        console.log('[SignUpForm] Upload e registro de documentos KYC concluídos com sucesso.');
       } catch (uploadError: any) {
+        console.error('[SignUpForm] Erro durante o upload/registro de documentos KYC:', uploadError);
         setError(`Erro no upload de documentos: ${uploadError.message}`);
         // Potentially revert user creation or mark profile for manual review
         setLoading(false);
@@ -327,9 +340,11 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                   className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-text"
                 >
                   <option value="">Selecione</option>
-                  <option value="RG">RG</option>
-                  <option value="CPF">CPF</option>
-                  <option value="CNH">CNH</option>
+                  <option value="id_front">RG/CNH (Frente)</option>
+                  <option value="id_back">RG/CNH (Verso)</option>
+                  <option value="cpf">CPF</option>
+                  <option value="passport">Passaporte</option>
+                  <option value="other">Outro</option>
                 </select>
               </div>
 

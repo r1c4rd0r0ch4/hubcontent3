@@ -218,7 +218,11 @@ export async function uploadKycDocument(
   userId: string,
   documentType: string // e.g., 'id_front', 'proof_of_address'
 ): Promise<{ data: UploadResult | null; error: UploadError | null }> {
+  console.log(`[uploadKycDocument] Attempting to upload file: ${file.name}, type: ${file.type}, size: ${file.size}`);
+  console.log(`[uploadKycDocument] Target user_id: ${userId}, documentType: ${documentType}`);
+
   if (!ALLOWED_DOCUMENT_TYPES.includes(file.type)) {
+    console.error(`[uploadKycDocument] Invalid file type: ${file.type}`);
     return {
       data: null,
       error: { message: 'Formato de documento não suportado. Use JPEG, PNG, WebP ou PDF.' },
@@ -226,6 +230,7 @@ export async function uploadKycDocument(
   }
 
   if (file.size > MAX_DOCUMENT_SIZE) {
+    console.error(`[uploadKycDocument] File size too large: ${file.size} bytes`);
     return {
       data: null,
       error: { message: `O documento deve ter no máximo ${formatFileSize(MAX_DOCUMENT_SIZE)}.` },
@@ -234,25 +239,39 @@ export async function uploadKycDocument(
 
   const fileExt = file.name.split('.').pop();
   const fileName = `${userId}/${documentType}-${Date.now()}.${fileExt}`;
+  const bucketName = 'kyc-documents'; // Dedicated bucket for KYC documents
+
+  console.log(`[uploadKycDocument] Uploading to bucket: ${bucketName}, path: ${fileName}`);
 
   const { data, error } = await supabase.storage
-    .from('kyc-documents') // Dedicated bucket for KYC documents
+    .from(bucketName)
     .upload(fileName, file, {
       cacheControl: '3600',
       upsert: false,
     });
 
   if (error) {
+    console.error(`[uploadKycDocument] Supabase Storage upload error:`, error);
     return {
       data: null,
       error: { message: 'Erro ao fazer upload do documento KYC.', code: error.message },
     };
   }
 
-  const { data: { publicUrl } } = supabase.storage
-    .from('kyc-documents')
+  console.log(`[uploadKycDocument] Upload successful. Getting public URL for path: ${fileName}`);
+  const { data: { publicUrl }, error: publicUrlError } = supabase.storage
+    .from(bucketName)
     .getPublicUrl(fileName);
 
+  if (publicUrlError) {
+    console.error(`[uploadKycDocument] Error getting public URL:`, publicUrlError);
+    return {
+      data: null,
+      error: { message: 'Erro ao obter URL pública do documento KYC.', code: publicUrlError.message },
+    };
+  }
+
+  console.log(`[uploadKycDocument] Public URL generated: ${publicUrl}`);
   return {
     data: {
       url: publicUrl,

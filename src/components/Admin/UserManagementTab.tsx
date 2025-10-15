@@ -2,12 +2,17 @@ import React from 'react';
 import { useAdminData } from '../../hooks/useAdminData';
 import { AdminCard } from './AdminCard';
 import { supabase } from '../../lib/supabase';
-import { CheckCircle, XCircle, Loader2, Info, Ban, Trash2, Unlock } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Info, Ban, Trash2, Unlock, FileText } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { KycDocumentsModal } from './KycDocumentsModal';
+import { Database } from '../../lib/database.types';
+
+type Profile = Database['public']['Tables']['profiles']['Row'];
 
 export const UserManagementTab: React.FC = () => {
   const { profiles, loading, error, refetch } = useAdminData();
   const [processingUserId, setProcessingUserId] = React.useState<string | null>(null);
+  const [selectedUserForKyc, setSelectedUserForKyc] = React.useState<Profile | null>(null);
 
   const handleAccountStatusUpdate = async (userId: string, status: 'approved' | 'rejected') => {
     setProcessingUserId(userId);
@@ -130,8 +135,16 @@ export const UserManagementTab: React.FC = () => {
     }
   };
 
+  const handleOpenKycModal = (profile: Profile) => {
+    setSelectedUserForKyc(profile);
+  };
+
+  const handleCloseKycModal = () => {
+    setSelectedUserForKyc(null);
+  };
+
   const pendingInfluencers = profiles.filter(p => p.user_type === 'influencer' && p.account_status === 'pending');
-  const allRegisteredUsers = profiles; // useAdminData já busca todos os perfis
+  const allRegisteredUsers = profiles;
 
   if (loading) {
     return (
@@ -195,6 +208,15 @@ export const UserManagementTab: React.FC = () => {
                   >
                     {processingUserId === profile.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <XCircle className="w-5 h-5 mr-2" />}
                     Rejeitar
+                  </button>
+                  {/* Add "Ver Documentos KYC" button for pending influencers */}
+                  <button
+                    onClick={() => handleOpenKycModal(profile)}
+                    className="flex-1 flex items-center justify-center px-4 py-2 bg-primary/20 text-primary rounded-lg hover:bg-primary/30 transition-colors"
+                    title="Ver Documentos KYC"
+                  >
+                    <FileText className="w-5 h-5 mr-2" />
+                    Ver KYC
                   </button>
                 </div>
               </div>
@@ -292,6 +314,15 @@ export const UserManagementTab: React.FC = () => {
                           </button>
                         </>
                       )}
+                      {profile.user_type === 'influencer' && ( // Add "View KYC" button for all influencers
+                        <button
+                          onClick={() => handleOpenKycModal(profile)}
+                          className="text-primary hover:text-primary/80 transition-colors"
+                          title="Ver Documentos KYC"
+                        >
+                          <FileText className="w-5 h-5" />
+                        </button>
+                      )}
                       {profile.is_active ? (
                         <button
                           onClick={() => handleBlockUser(profile.id)}
@@ -327,6 +358,16 @@ export const UserManagementTab: React.FC = () => {
           </div>
         )}
       </AdminCard>
+
+      {selectedUserForKyc && (
+        <KycDocumentsModal
+          userId={selectedUserForKyc.id}
+          userName={selectedUserForKyc.full_name || selectedUserForKyc.username}
+          userEmail={selectedUserForKyc.email}
+          onClose={handleCloseKycModal}
+          onKycStatusChange={refetch}
+        />
+      )}
     </div>
   );
 };

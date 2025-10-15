@@ -6,9 +6,11 @@ import { UserDashboard } from './components/User/UserDashboard';
 import { ProfileEditModal } from './components/Influencer/ProfileEditModal';
 import { UserProfileEditModal } from './components/User/UserProfileEditModal';
 import { LogOut, Sparkles } from 'lucide-react';
-import { AdminDashboard } from './components/Admin/AdminDashboard'; // Import AdminDashboard
+import { AdminDashboard } from './components/Admin/AdminDashboard';
+import { Toaster } from 'react-hot-toast'; // Import Toaster
 
 function AppContent() {
+  console.log('[AppContent] Starting render...'); // Added log for debugging
   const { user, profile, signOut, loading, isAdmin } = useAuth(); // Get isAdmin
   const [showProfileEdit, setShowProfileEdit] = useState(false);
 
@@ -127,6 +129,7 @@ function App() {
   return (
     <AuthProvider>
       <AppContent />
+      <Toaster /> {/* Add Toaster component here */}
     </AuthProvider>
   );
 }

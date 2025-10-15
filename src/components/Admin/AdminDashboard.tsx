@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { UserManagementTab } from './UserManagementTab';
 import { ReportedContentTab } from './ReportedContentTab';
-import { KycReviewTab } from './KycReviewTab';
-import { PlatformSettingsTab } from './PlatformSettingsTab';
-import { AdminLayout } from './AdminLayout'; // Import the new layout
-import { Users, Flag, FileText, Settings } from 'lucide-react';
+import { PlatformSettingsTab } from './PlatformSettingsTab'; // KycReviewTab import removed
+import { AdminLayout } from './AdminLayout';
+import { Users, Flag, Settings } from 'lucide-react'; // FileText icon removed
 
 export function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('userManagement');
@@ -12,7 +11,7 @@ export function AdminDashboard() {
   const tabs = [
     { id: 'userManagement', label: 'Gerenciar Usuários', icon: Users, component: <UserManagementTab /> },
     { id: 'reportedContent', label: 'Moderação de Conteúdo', icon: Flag, component: <ReportedContentTab /> },
-    { id: 'kycReview', label: 'Revisão de KYC', icon: FileText, component: <KycReviewTab /> },
+    // { id: 'kycReview', label: 'Revisão de KYC', icon: FileText, component: <KycReviewTab /> }, // KycReviewTab entry removed
     { id: 'platformSettings', label: 'Configurações da Plataforma', icon: Settings, component: <PlatformSettingsTab /> },
   ];
 

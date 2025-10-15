@@ -53,7 +53,6 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
       (influencerData.subscription_price || 0).toLocaleString('pt-BR', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
-        useGrouping: true, // Ensure thousands separator
       })
     );
   }, [influencerData.subscription_price]);
@@ -88,7 +87,6 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
         (data.subscription_price || 0).toLocaleString('pt-BR', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
-          useGrouping: true, // Ensure thousands separator
         })
       );
     } else {
@@ -154,33 +152,28 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
   const handleSubscriptionPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let input = e.target.value;
 
-    // 1. Remove all non-digit characters
-    const cleanedInput = input.replace(/\D/g, '');
+    // Update the display state immediately with what the user typed
+    setDisplaySubscriptionPrice(input);
 
-    let numericValueInCents = parseInt(cleanedInput, 10);
-    if (isNaN(numericValueInCents)) {
-      numericValueInCents = 0;
+    // Clean the input for numeric parsing
+    // Remove all non-digit characters except for the first comma/dot
+    input = input.replace(/[^0-9,.]/g, '');
+    // Replace comma with dot for parsing
+    input = input.replace(',', '.');
+
+    // Ensure only one dot for decimals
+    const parts = input.split('.');
+    if (parts.length > 2) {
+      input = parts[0] + '.' + parts.slice(1).join('');
     }
 
-    // Cap the value to prevent excessively large numbers, e.g., max for DECIMAL(10,2) is 99,999,999.99
-    // Max cents would be 9999999999
-    if (numericValueInCents > 9999999999) {
-      numericValueInCents = 9999999999;
+    let parsedValue = parseFloat(input);
+    if (isNaN(parsedValue)) {
+      parsedValue = 0;
     }
 
-    // Convert cents to real value (e.g., 123 -> 1.23)
-    const realValue = numericValueInCents / 100;
-
-    // Format for display (e.g., 1.23 -> "1,23" or "1.234,56")
-    const formattedDisplayValue = realValue.toLocaleString('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-      useGrouping: true, // This will add thousands separators (e.g., 1.000,00)
-    });
-
-    // Update both states
-    setDisplaySubscriptionPrice(formattedDisplayValue);
-    setInfluencerData((prev) => ({ ...prev, subscription_price: realValue }));
+    // Update the numeric state
+    setInfluencerData((prev) => ({ ...prev, subscription_price: parsedValue }));
   };
 
   const handleSave = async () => {
@@ -409,13 +402,21 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
                   type="text"
                   value={displaySubscriptionPrice} // Use the display state for free typing
                   onChange={handleSubscriptionPriceChange}
+                  onBlur={() => { // Format on blur for final presentation
+                    setDisplaySubscriptionPrice(
+                      (influencerData.subscription_price || 0).toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    );
+                  }}
                   className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900 placeholder-gray-500"
                   placeholder="0,00"
                 />
               </div>
               <div className="mt-2 bg-pink-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-sm text-blue-800">
-                  <span className="font-semibold">Você receberá:</span> R$ {(influencerData.subscription_price * 0.8).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })} por assinante (80%)
+                  <span className="font-semibold">Você receberá:</span> R$ {(influencerData.subscription_price * 0.8).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} por assinante (80%)
                 </p>
                 <p className="text-xs text-pink-600 mt-1">Taxa da plataforma: 20%</p>
               </div>

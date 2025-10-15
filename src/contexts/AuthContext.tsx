@@ -42,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isInfluencerPendingApproval, setIsInfluencerPendingApproval] = useState(false);
 
   const loadProfileData = async (userId: string) => {
+    console.log(`[AuthContext] Attempting to load profile for user ID: ${userId}`);
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -57,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log(`[AuthContext] User ${data?.username} (ID: ${userId}) is admin: ${userIsAdmin}`);
       console.log('[AuthContext] Profile data loaded:', data); // Debugging: Check fetched profile data
     } catch (error) {
-      console.error('Error loading profile:', error);
+      console.error('[AuthContext] Error loading profile:', error);
       setProfile(null);
       setIsAdmin(false);
       setIsInfluencerPendingApproval(false);
@@ -65,20 +66,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    console.log('[AuthContext] useEffect triggered for AuthProvider.');
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      console.log('[AuthContext] getSession result:', session ? 'Session found' : 'No session');
       try {
         setUser(session?.user ?? null);
         if (session?.user) {
           await loadProfileData(session.user.id);
         }
       } catch (error) {
-        console.error("Error during initial session load:", error);
+        console.error("[AuthContext] Error during initial session load:", error);
       } finally {
         setLoading(false);
+        console.log('[AuthContext] Initial loading set to false.');
       }
+    }).catch(error => {
+      console.error('[AuthContext] Error calling getSession:', error);
+      setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log(`[AuthContext] onAuthStateChange event: ${_event}, session: ${session ? 'found' : 'null'}`);
       (async () => {
         try {
           setUser(session?.user ?? null);
@@ -90,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setIsInfluencerPendingApproval(false);
           }
         } catch (error) {
-          console.error("Error in onAuthStateChange handler:", error);
+          console.error("[AuthContext] Error in onAuthStateChange handler:", error);
           setProfile(null);
           setIsAdmin(false);
           setIsInfluencerPendingApproval(false);
@@ -100,7 +108,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })();
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log('[AuthContext] Unsubscribing from auth state changes.');
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (
@@ -214,16 +225,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    console.log('[AuthContext] Signing out...');
     await supabase.auth.signOut();
     setProfile(null);
     setIsAdmin(false);
     setIsInfluencerPendingApproval(false);
+    console.log('[AuthContext] Signed out successfully.');
   };
 
   const updateProfile = async (updates: Partial<Profile>) => {
     if (!user) return { error: new Error('No user logged in') };
 
     try {
+      console.log('[AuthContext] Updating profile for user:', user.id, updates);
       const { error } = await supabase
         .from('profiles')
         .update({ ...updates, updated_at: new Date().toISOString() })
@@ -232,8 +246,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
 
       await loadProfileData(user.id); // This should refetch and update the context
+      console.log('[AuthContext] Profile updated successfully.');
       return { error: null };
     } catch (error) {
+      console.error('[AuthContext] Error updating profile:', error);
       return { error: error as Error };
     }
   };
