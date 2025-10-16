@@ -108,7 +108,7 @@ serve(async (req) => {
     try {
       console.log('[send-email Edge Function] Sending email via Resend...');
       const { data, error } = await resend.emails.send({
-        from: 'ricardo@ihackmyfuture.com', // IMPORTANT: Replace with your verified domain email, e.g., 'noreply@yourdomain.com'
+        from: 'ricardo@ihackmyfuture.com', // ALTERADO: Usando o endereço de e-mail verificado
         to: to,
         subject: subject,
         html: body,
