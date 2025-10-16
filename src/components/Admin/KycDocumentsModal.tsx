@@ -77,7 +77,6 @@ export const KycDocumentsModal: React.FC<KycDocumentsModalProps> = ({ userId, us
       ? `
         <p>Olá ${name},</p>
         <p>Temos ótimas notícias! Seu documento KYC do tipo <strong>${documentType.replace(/_/g, ' ')}</strong> foi <strong>APROVADO</strong>.</p>
-        <p>Sua conta agora está totalmente verificada e você pode aproveitar todos os recursos da plataforma HubContent.</p>
         <p>Obrigado por sua paciência e cooperação.</p>
         <p>Atenciosamente,</p>
         <p>A equipe HubContent</p>
