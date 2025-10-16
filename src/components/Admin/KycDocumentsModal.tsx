@@ -133,9 +133,20 @@ export const KycDocumentsModal: React.FC<KycDocumentsModalProps> = ({ userId, us
 
       if (fetchError) throw fetchError;
 
+      const updatePayload: Partial<KycDocument> = {
+        status: status,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (status === 'rejected' && reason) {
+        updatePayload.rejection_reason = reason;
+      } else {
+        updatePayload.rejection_reason = null; // Clear reason if approved or no reason provided
+      }
+
       const { data: updateData, error: kycError } = await supabase
         .from('kyc_documents')
-        .update({ status: status, updated_at: new Date().toISOString() })
+        .update(updatePayload)
         .eq('id', docId)
         .select(); // Select the updated row to confirm
 
@@ -213,6 +224,11 @@ export const KycDocumentsModal: React.FC<KycDocumentsModalProps> = ({ userId, us
                       doc.status === 'pending' ? 'text-warning' : 'text-error'
                     }`}>{doc.status}</span>
                   </p>
+                  {doc.rejection_reason && doc.status === 'rejected' && (
+                    <p className="text-sm text-error mb-2">
+                      <span className="font-semibold">Motivo:</span> {doc.rejection_reason}
+                    </p>
+                  )}
                   <div className="flex items-center justify-between mb-4">
                     <a
                       href={doc.file_url}
