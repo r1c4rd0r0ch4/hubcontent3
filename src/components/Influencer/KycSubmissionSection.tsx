@@ -8,9 +8,10 @@ import { toast } from 'react-hot-toast';
 
 type KycDocument = Database['public']['Tables']['kyc_documents']['Row'];
 
+// Mapeamento de tipos de documento para termos em português
 const documentTypeLabels: Record<KycDocument['document_type'], string> = {
-  id_front: 'Frente do Documento de Identidade',
-  id_back: 'Verso do Documento de Identidade',
+  id_front: 'Documento de Identidade (Frente)',
+  id_back: 'Documento de Identidade (Verso)',
   proof_of_address: 'Comprovante de Endereço',
   selfie_with_id: 'Selfie com Documento de Identidade',
 };

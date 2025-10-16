@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import type { Database } from '../../lib/database.types';
 import { Sparkles, Upload, DollarSign, Users, Eye, Heart, Loader2, XCircle, Settings, User } from 'lucide-react';
 import { ProfileEditModal } from './ProfileEditModal';
+import { KycSubmissionSection } from './KycSubmissionSection'; // Importar o novo componente
 
 type Content = Database['public']['Tables']['content']['Row'];
 type Subscription = Database['public']['Tables']['subscriptions']['Row'];
@@ -112,14 +113,18 @@ export function InfluencerDashboard() {
 
   if (isInfluencerPendingApproval) {
     return (
-      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-background p-8">
-        <div className="bg-surface rounded-xl p-8 text-center shadow-lg border border-border max-w-md">
+      <div className="min-h-[calc(100vh-64px)] flex flex-col items-center justify-center bg-background p-8">
+        <div className="bg-surface rounded-xl p-8 text-center shadow-lg border border-border max-w-md mb-8">
           <XCircle className="w-16 h-16 text-warning mx-auto mb-4" />
           <h3 className="text-2xl font-bold text-text mb-2">Conta de Influenciador Pendente</h3>
           <p className="text-textSecondary mb-4">
             Sua conta de influenciador está aguardando aprovação. Por favor, aguarde enquanto nossa equipe revisa seus dados.
           </p>
           <p className="text-sm text-textSecondary">Você será notificado assim que sua conta for aprovada.</p>
+        </div>
+        {/* Seção para reenvio de documentos KYC, acessível mesmo com o perfil pendente */}
+        <div className="w-full max-w-3xl">
+          <KycSubmissionSection />
         </div>
       </div>
     );

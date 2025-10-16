@@ -17,6 +17,14 @@ interface KycDocumentsModalProps {
   onKycStatusChange: () => void; // Callback to refetch profiles in parent
 }
 
+// Mapeamento de tipos de documento para termos em português
+const documentTypeLabels: Record<KycDocument['document_type'], string> = {
+  id_front: 'Documento de Identidade (Frente)',
+  id_back: 'Documento de Identidade (Verso)',
+  proof_of_address: 'Comprovante de Endereço',
+  selfie_with_id: 'Selfie com Documento de Identidade',
+};
+
 export const KycDocumentsModal: React.FC<KycDocumentsModalProps> = ({ userId, userName, userEmail, onClose, onKycStatusChange }) => {
   const [kycDocuments, setKycDocuments] = useState<KycDocument[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,21 +77,23 @@ export const KycDocumentsModal: React.FC<KycDocumentsModalProps> = ({ userId, us
     targetUserId: string,
     reason?: string
   ) => {
+    const localizedDocumentType = documentTypeLabels[documentType as KycDocument['document_type']] || documentType.replace(/_/g, ' ');
+
     const subject = status === 'approved'
-      ? `Seu documento KYC foi APROVADO - HubContent`
-      : `Seu documento KYC foi REJEITADO - HubContent`;
+      ? `Seu documento KYC (${localizedDocumentType}) foi APROVADO - HubContent`
+      : `Seu documento KYC (${localizedDocumentType}) foi REJEITADO - HubContent`;
 
     const body = status === 'approved'
       ? `
         <p>Olá ${name},</p>
-        <p>Temos ótimas notícias! Seu documento KYC do tipo <strong>${documentType.replace(/_/g, ' ')}</strong> foi <strong>APROVADO</strong>.</p>
+        <p>Temos ótimas notícias! Seu documento KYC do tipo <strong>${localizedDocumentType}</strong> foi <strong>APROVADO</strong>.</p>
         <p>Obrigado por sua paciência e cooperação.</p>
         <p>Atenciosamente,</p>
         <p>A equipe HubContent</p>
       `
       : `
         <p>Olá ${name},</p>
-        <p>Informamos que seu documento KYC do tipo <strong>${documentType.replace(/_/g, ' ')}</strong> foi <strong>REJEITADO</strong>.</p>
+        <p>Informamos que seu documento KYC do tipo <strong>${localizedDocumentType}</strong> foi <strong>REJEITADO</strong>.</p>
         ${reason ? `<p><strong>Motivo da Rejeição:</strong> ${reason}</p>` : ''}
         <p>Isso pode ter ocorrido por diversos motivos, como imagem ilegível, documento expirado ou informações inconsistentes.</p>
         <p>Por favor, faça login em sua conta e envie novamente os documentos corrigidos para revisão.</p>
@@ -216,7 +226,7 @@ export const KycDocumentsModal: React.FC<KycDocumentsModalProps> = ({ userId, us
               console.log(`[KycDocumentsModal] Document ID: ${doc.id}, File URL: ${doc.file_url}, Current Status: ${doc.status}`); // Debug log for file_url and status
               return (
                 <div key={doc.id} className="bg-background p-5 rounded-lg border border-border shadow-sm flex flex-col">
-                  <p className="text-lg font-semibold text-text mb-2">Tipo: <span className="capitalize">{doc.document_type.replace(/_/g, ' ')}</span></p>
+                  <p className="text-lg font-semibold text-text mb-2">Tipo: <span className="capitalize">{documentTypeLabels[doc.document_type] || doc.document_type.replace(/_/g, ' ')}</span></p>
                   <p className="text-sm text-textSecondary mb-2">
                     Status: <span className={`font-medium capitalize ${
                       doc.status === 'approved' ? 'text-success' :
@@ -282,7 +292,7 @@ export const KycDocumentsModal: React.FC<KycDocumentsModalProps> = ({ userId, us
               <h3 className="text-2xl font-bold text-text mb-4">Rejeitar Documento KYC</h3>
               <p className="text-textSecondary mb-4">
                 Você está prestes a rejeitar o documento KYC do tipo{' '}
-                <span className="font-semibold capitalize">{currentDocToReject.document_type.replace(/_/g, ' ')}</span>{' '}
+                <span className="font-semibold capitalize">{documentTypeLabels[currentDocToReject.document_type] || currentDocToReject.document_type.replace(/_/g, ' ')}</span>{' '}
                 para o usuário <span className="font-semibold">{userName}</span>.
                 Por favor, forneça um motivo para a rejeição.
               </p>
