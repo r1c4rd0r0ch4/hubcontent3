@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext'; // CORRIGIDO: Caminho de importação
 import { supabase } from '../../lib/supabase';
 import { DollarSign, TrendingUp, Calendar } from 'lucide-react';
 
@@ -76,15 +76,15 @@ export function EarningsOverview() {
   };
 
   if (loading) {
-    return <div className="text-center py-12">Carregando...</div>;
+    return <div className="text-center py-12 text-text">Carregando...</div>;
   }
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Visão Geral dos Ganhos</h2>
+      <h2 className="text-2xl font-bold text-text mb-6">Visão Geral dos Ganhos</h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-6 text-white">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div className="bg-gradient-to-br from-success to-green-700 rounded-xl p-6 text-white shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <DollarSign className="w-8 h-8" />
             <span className="text-sm opacity-90">Total</span>
@@ -93,7 +93,7 @@ export function EarningsOverview() {
           <p className="text-sm opacity-90 mt-1">Ganhos totais confirmados</p>
         </div>
 
-        <div className="bg-gradient-to-br from-pink-500 to-purple-600 rounded-lg p-6 text-white">
+        <div className="bg-gradient-to-br from-primary to-secondary rounded-xl p-6 text-white shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <TrendingUp className="w-8 h-8" />
             <span className="text-sm opacity-90">Este Mês</span>
@@ -102,7 +102,7 @@ export function EarningsOverview() {
           <p className="text-sm opacity-90 mt-1">Ganhos do mês atual</p>
         </div>
 
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg p-6 text-white">
+        <div className="bg-gradient-to-br from-warning to-orange-700 rounded-xl p-6 text-white shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <Calendar className="w-8 h-8" />
             <span className="text-sm opacity-90">Pendente</span>
@@ -112,16 +112,16 @@ export function EarningsOverview() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="px-6 py-4 border-b bg-gray-50 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Histórico de Pagamentos</h3>
+      <div className="bg-surface rounded-xl shadow-lg border border-border overflow-hidden">
+        <div className="px-6 py-4 border-b border-border bg-background flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-text">Histórico de Pagamentos</h3>
           <div className="flex gap-2">
             <button
               onClick={() => setDateFilter('all')}
               className={`px-3 py-1 text-sm rounded-lg transition-colors ${
                 dateFilter === 'all'
-                  ? 'bg-pink-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-primary text-white'
+                  : 'bg-background text-textSecondary hover:bg-border'
               }`}
             >
               Todos
@@ -130,8 +130,8 @@ export function EarningsOverview() {
               onClick={() => setDateFilter('month')}
               className={`px-3 py-1 text-sm rounded-lg transition-colors ${
                 dateFilter === 'month'
-                  ? 'bg-pink-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-primary text-white'
+                  : 'bg-background text-textSecondary hover:bg-border'
               }`}
             >
               Este Mês
@@ -140,8 +140,8 @@ export function EarningsOverview() {
               onClick={() => setDateFilter('week')}
               className={`px-3 py-1 text-sm rounded-lg transition-colors ${
                 dateFilter === 'week'
-                  ? 'bg-pink-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-primary text-white'
+                  : 'bg-background text-textSecondary hover:bg-border'
               }`}
             >
               Esta Semana
@@ -151,34 +151,34 @@ export function EarningsOverview() {
 
         {payments.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-600">Nenhum pagamento registrado ainda</p>
+            <p className="text-textSecondary">Nenhum pagamento registrado ainda</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-background border-b border-border">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                     Data
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                     Assinante
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                     Valor Total
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                     Taxa (10%)
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                     Seus Ganhos
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                     Status
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-surface divide-y divide-border">
                 {payments
                   .filter(payment => {
                     if (dateFilter === 'all') return true;
@@ -196,29 +196,29 @@ export function EarningsOverview() {
                     return true;
                   })
                   .map((payment) => (
-                  <tr key={payment.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <tr key={payment.id} className="hover:bg-background">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-textSecondary">
                       {new Date(payment.created_at).toLocaleDateString('pt-BR')}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-text">
                       @{payment.profiles.username}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-text">
                       R$ {payment.amount.toFixed(2)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-error">
                       - R$ {payment.platform_fee.toFixed(2)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-success">
                       R$ {payment.influencer_earnings.toFixed(2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         payment.payment_status === 'completed'
-                          ? 'bg-green-100 text-green-800'
+                          ? 'bg-success/20 text-success'
                           : payment.payment_status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
+                          ? 'bg-warning/20 text-warning'
+                          : 'bg-error/20 text-error'
                       }`}>
                         {payment.payment_status === 'completed' ? 'Confirmado' :
                          payment.payment_status === 'pending' ? 'Pendente' : 'Falhou'}
@@ -232,9 +232,9 @@ export function EarningsOverview() {
         )}
       </div>
 
-      <div className="mt-6 bg-pink-50 border border-blue-200 rounded-lg p-6">
-        <h4 className="font-semibold text-blue-900 mb-2">Como funciona o pagamento</h4>
-        <ul className="text-sm text-blue-800 space-y-1">
+      <div className="mt-6 bg-primary/10 border border-primary/30 rounded-lg p-6">
+        <h4 className="font-semibold text-primary mb-2">Como funciona o pagamento</h4>
+        <ul className="text-sm text-textSecondary space-y-1">
           <li>• A plataforma cobra 10% de taxa sobre cada assinatura</li>
           <li>• Você recebe 90% do valor de cada assinatura</li>
           <li>• Os pagamentos são processados automaticamente</li>

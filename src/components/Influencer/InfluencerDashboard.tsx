@@ -2,9 +2,13 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Database } from '../../lib/database.types';
-import { Sparkles, Upload, DollarSign, Users, Eye, Heart, Loader2, XCircle, Settings, User } from 'lucide-react';
+import { Sparkles, Upload, DollarSign, Users, Eye, Heart, Loader2, XCircle, Settings, User, Video, FileText, Instagram, Twitter, Link } from 'lucide-react'; // Adicionado Instagram, Twitter, Link
 import { ProfileEditModal } from './ProfileEditModal';
-import { KycSubmissionSection } from './KycSubmissionSection'; // Import the KYC submission section
+import { KycSubmissionSection } from './KycSubmissionSection';
+import { ContentManager } from './ContentManager';
+import { StreamingSettings } from './StreamingSettings';
+import { EarningsOverview } from './EarningsOverview';
+import { StreamingBookings } from './StreamingBookings';
 
 type Content = Database['public']['Tables']['content']['Row'];
 type Subscription = Database['public']['Tables']['subscriptions']['Row'];
@@ -20,7 +24,7 @@ export function InfluencerDashboard() {
   const [loadingInfluencerProfile, setLoadingInfluencerProfile] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'kyc'>('dashboard'); // New state for tab navigation
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'streaming-settings' | 'streaming-bookings' | 'earnings' | 'kyc'>('dashboard');
 
   const fetchInfluencerData = useCallback(async () => {
     if (!profile) {
@@ -32,7 +36,6 @@ export function InfluencerDashboard() {
 
     setError(null);
 
-    // Fetch influencer profile to get its ID and other data
     setLoadingInfluencerProfile(true);
     const { data: influencerData, error: influencerError } = await supabase
       .from('influencer_profiles')
@@ -60,7 +63,6 @@ export function InfluencerDashboard() {
 
     const influencerId = influencerData.id;
 
-    // Fetch Content
     setLoadingContent(true);
     try {
       const { data, error } = await supabase
@@ -78,7 +80,6 @@ export function InfluencerDashboard() {
       setLoadingContent(false);
     }
 
-    // Fetch Subscriptions
     setLoadingSubscriptions(true);
     try {
       const { data, error } = await supabase
@@ -98,7 +99,6 @@ export function InfluencerDashboard() {
   }, [profile]);
 
   useEffect(() => {
-    // Fetch data only if profile exists and user is an influencer
     if (profile && profile.user_type === 'influencer') {
       fetchInfluencerData();
     }
@@ -110,16 +110,15 @@ export function InfluencerDashboard() {
 
   const handleModalSuccess = () => {
     setShowEditProfileModal(false);
-    fetchInfluencerData(); // Re-fetch data after successful update
+    fetchInfluencerData();
   };
 
   const totalEarnings = subscriptions.reduce((sum, sub) => sum + (sub.price_paid || 0), 0);
 
-  // This function will render the content specific to the 'dashboard' tab
   const renderDashboardTabContent = () => {
     if (isInfluencerPendingApproval) {
       return (
-        <div className="flex items-center justify-center py-16"> {/* Adjusted padding */}
+        <div className="flex items-center justify-center py-16">
           <div className="bg-surface rounded-xl p-8 text-center shadow-lg border border-border max-w-md">
             <XCircle className="w-16 h-16 text-warning mx-auto mb-4" />
             <h3 className="text-2xl font-bold text-text mb-2">Conta de Influenciador Pendente</h3>
@@ -158,34 +157,90 @@ export function InfluencerDashboard() {
           </div>
         </div>
 
-        {/* Display current profile info (avatar, bio, etc.) from AuthContext's profile */}
         {profile && (
-          <div className="bg-surface rounded-xl p-6 shadow-lg border border-border mb-10">
+          <div className="bg-surface rounded-xl p-6 shadow-lg border border-border mb-10 animate-fade-in">
             <h3 className="text-2xl font-bold text-text mb-6 border-b border-border pb-4">Seu Perfil</h3>
-            <div className="flex items-center gap-6 mb-4">
+
+            {/* Profile Header: Avatar, Username, Full Name, Bio */}
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
               {profile.avatar_url ? (
                 <img
                   src={profile.avatar_url}
                   alt="Avatar"
-                  className="w-24 h-24 rounded-full object-cover border-4 border-primary"
+                  className="w-28 h-28 rounded-full object-cover border-4 border-primary shadow-lg"
                 />
               ) : (
-                <div className="w-24 h-24 rounded-full bg-primary/20 flex items-center justify-center border-4 border-primary">
-                  <User className="w-12 h-12 text-primary" />
+                <div className="w-28 h-28 rounded-full bg-primary/20 flex items-center justify-center border-4 border-primary shadow-lg">
+                  <User className="w-14 h-14 text-primary" />
                 </div>
               )}
-              <div>
-                <p className="text-text text-xl font-semibold">{profile.username}</p>
-                <p className="text-textSecondary text-md">{profile.full_name}</p>
-                <p className="text-textSecondary text-sm mt-1">{profile.bio || 'Nenhuma biografia definida.'}</p>
+              <div className="text-center md:text-left flex-1">
+                <p className="text-text text-3xl font-extrabold mb-1 leading-tight">{profile.username}</p>
+                <p className="text-textSecondary text-lg mb-3">{profile.full_name}</p>
+                <p className="text-textSecondary text-base max-w-prose leading-relaxed">
+                  {profile.bio || 'Nenhuma biografia definida. Clique em "Editar Perfil" para adicionar uma descrição cativante sobre você e seu conteúdo!'}
+                </p>
               </div>
             </div>
+
             {influencerProfileData && (
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-textSecondary">
-                <p><strong>Preço Assinatura:</strong> R$ {(influencerProfileData.subscription_price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                {influencerProfileData.instagram && <p><strong>Instagram:</strong> <a href={`https://instagram.com/${influencerProfileData.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{influencerProfileData.instagram}</a></p>}
-                {influencerProfileData.twitter && <p><strong>Twitter:</strong> <a href={`https://twitter.com/${influencerProfileData.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{influencerProfileData.twitter}</a></p>}
-                {influencerProfileData.tiktok && <p><strong>TikTok:</strong> <a href={`https://tiktok.com/@${influencerProfileData.tiktok.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{influencerProfileData.tiktok}</a></p>}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8 pt-8 border-t border-border">
+                {/* Subscription Price Section */}
+                <div className="bg-background rounded-lg p-5 border border-border flex items-center gap-4 animate-fade-in">
+                  <DollarSign className="w-8 h-8 text-success" />
+                  <div>
+                    <p className="text-textSecondary text-sm">Preço Mensal da Assinatura</p>
+                    <p className="text-text text-2xl font-bold">
+                      R$ {(influencerProfileData.subscription_price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Social Media Section */}
+                <div className="bg-background rounded-lg p-5 border border-border animate-fade-in delay-100">
+                  <h4 className="text-lg font-semibold text-text mb-4 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-accent" /> Redes Sociais
+                  </h4>
+                  <div className="flex flex-wrap gap-3">
+                    {influencerProfileData.instagram && (
+                      <a
+                        href={`https://instagram.com/${influencerProfileData.instagram.replace('@', '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors text-sm font-medium group"
+                      >
+                        <Instagram className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                        {influencerProfileData.instagram}
+                      </a>
+                    )}
+                    {influencerProfileData.twitter && (
+                      <a
+                        href={`https://twitter.com/${influencerProfileData.twitter.replace('@', '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 bg-secondary/10 text-secondary rounded-full hover:bg-secondary/20 transition-colors text-sm font-medium group"
+                      >
+                        <Twitter className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                        {influencerProfileData.twitter}
+                      </a>
+                    )}
+                    {influencerProfileData.tiktok && (
+                      <a
+                        href={`https://tiktok.com/@${influencerProfileData.tiktok.replace('@', '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent rounded-full hover:bg-accent/20 transition-colors text-sm font-medium group"
+                      >
+                        {/* Usando um ícone genérico de Link para TikTok, pois não está no lucide-react */}
+                        <Link className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                        {influencerProfileData.tiktok}
+                      </a>
+                    )}
+                    {!influencerProfileData.instagram && !influencerProfileData.twitter && !influencerProfileData.tiktok && (
+                      <p className="text-textSecondary text-sm">Nenhuma rede social configurada. Adicione-as em "Editar Perfil".</p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -193,14 +248,14 @@ export function InfluencerDashboard() {
 
 
         <div className="mb-10">
-          <h3 className="text-2xl font-bold text-text mb-6 border-b border-border pb-4">Seu Conteúdo</h3>
+          <h3 className="text-2xl font-bold text-text mb-6 border-b border-border pb-4">Seu Conteúdo Recente</h3>
           {loadingContent && (
             <div className="flex items-center justify-center text-primary text-lg">
               <Loader2 className="animate-spin mr-2" size={24} /> Carregando conteúdo...
             </div>
           )}
           {!loadingContent && content.length === 0 && (
-            <p className="text-textSecondary text-center">Nenhum conteúdo enviado ainda. <button className="text-primary hover:underline">Envie seu primeiro conteúdo!</button></p>
+            <p className="text-textSecondary text-center">Nenhum conteúdo enviado ainda. <button onClick={() => setActiveTab('content')} className="text-primary hover:underline">Envie seu primeiro conteúdo!</button></p>
           )}
           {!loadingContent && content.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -211,7 +266,7 @@ export function InfluencerDashboard() {
                     <h4 className="text-lg font-semibold text-text mb-2">{item.title}</h4>
                     <p className="text-sm text-textSecondary mb-3 line-clamp-2">{item.description}</p>
                     <div className="flex items-center justify-between text-textSecondary text-sm">
-                      <span className="flex items-center gap-1"><Eye size={16} /> {item.total_views}</span>
+                      <span className="flex items-center gap-1"><Eye size={16} /> {item.views_count}</span>
                       <span className="flex items-center gap-1"><Heart size={16} /> {item.likes_count}</span>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${item.status === 'approved' ? 'bg-success/20 text-success' : item.status === 'pending' ? 'bg-warning/20 text-warning' : 'bg-error/20 text-error'}`}>
                         {item.status}
@@ -238,7 +293,7 @@ export function InfluencerDashboard() {
             <div className="overflow-x-auto">
               <table className="min-w-full bg-surface rounded-xl shadow-lg border border-border">
                 <thead>
-                  <tr className="bg-border text-textSecondary text-left">
+                  <tr className="bg-background text-textSecondary text-left">
                     <th className="py-3 px-4 font-semibold">Assinante</th>
                     <th className="py-3 px-4 font-semibold">Status</th>
                     <th className="py-3 px-4 font-semibold">Preço Pago</th>
@@ -249,7 +304,7 @@ export function InfluencerDashboard() {
                 <tbody>
                   {subscriptions.map((sub) => (
                     <tr key={sub.id} className="border-b border-border last:border-b-0 hover:bg-background transition-colors">
-                      <td className="py-3 px-4 text-text">{sub.subscriber_id}</td> {/* Ideally fetch username */}
+                      <td className="py-3 px-4 text-text">{sub.subscriber_id}</td>
                       <td className="py-3 px-4">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${sub.status === 'active' ? 'bg-success/20 text-success' : sub.status === 'pending' ? 'bg-warning/20 text-warning' : 'bg-error/20 text-error'}`}>
                           {sub.status}
@@ -273,7 +328,12 @@ export function InfluencerDashboard() {
     <div className="container mx-auto p-8 bg-background text-text min-h-[calc(100vh-64px)]">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-10 gap-4">
         <h2 className="text-4xl font-extrabold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-          {activeTab === 'dashboard' ? 'Painel do Influenciador' : 'Meus Documentos KYC'}
+          {activeTab === 'dashboard' ? 'Painel do Influenciador' :
+           activeTab === 'content' ? 'Gerenciar Conteúdo' :
+           activeTab === 'streaming-settings' ? 'Configurações de Streaming' :
+           activeTab === 'streaming-bookings' ? 'Reservas de Streaming' :
+           activeTab === 'earnings' ? 'Meus Ganhos' :
+           'Meus Documentos KYC'}
         </h2>
         <div className="flex flex-wrap items-center gap-4">
           <button
@@ -287,6 +347,46 @@ export function InfluencerDashboard() {
             Painel
           </button>
           <button
+            onClick={() => setActiveTab('content')}
+            className={`px-5 py-2 rounded-lg font-semibold transition-colors ${
+              activeTab === 'content'
+                ? 'bg-primary text-white shadow-md'
+                : 'bg-surface text-textSecondary hover:bg-border'
+            }`}
+          >
+            Conteúdo
+          </button>
+          <button
+            onClick={() => setActiveTab('streaming-settings')}
+            className={`px-5 py-2 rounded-lg font-semibold transition-colors ${
+              activeTab === 'streaming-settings'
+                ? 'bg-primary text-white shadow-md'
+                : 'bg-surface text-textSecondary hover:bg-border'
+            }`}
+          >
+            Config. Streaming
+          </button>
+          <button
+            onClick={() => setActiveTab('streaming-bookings')}
+            className={`px-5 py-2 rounded-lg font-semibold transition-colors ${
+              activeTab === 'streaming-bookings'
+                ? 'bg-primary text-white shadow-md'
+                : 'bg-surface text-textSecondary hover:bg-border'
+            }`}
+          >
+            Reservas Streaming
+          </button>
+          <button
+            onClick={() => setActiveTab('earnings')}
+            className={`px-5 py-2 rounded-lg font-semibold transition-colors ${
+              activeTab === 'earnings'
+                ? 'bg-primary text-white shadow-md'
+                : 'bg-surface text-textSecondary hover:bg-border'
+            }`}
+          >
+            Ganhos
+          </button>
+          <button
             onClick={() => setActiveTab('kyc')}
             className={`px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'kyc'
@@ -294,9 +394,9 @@ export function InfluencerDashboard() {
                 : 'bg-surface text-textSecondary hover:bg-border'
             }`}
           >
-            Meus Documentos KYC
+            KYC
           </button>
-          {activeTab === 'dashboard' && ( // Only show "Editar Perfil" on dashboard tab
+          {(activeTab === 'dashboard' || activeTab === 'kyc') && (
             <button
               onClick={() => setShowEditProfileModal(true)}
               className="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-secondary transition-colors shadow-md"
@@ -310,7 +410,19 @@ export function InfluencerDashboard() {
 
       {error && <p className="text-error text-center mb-4">{error}</p>}
 
-      {activeTab === 'dashboard' ? renderDashboardTabContent() : <KycSubmissionSection />}
+      {influencerProfileData?.id ? (
+        <>
+          {activeTab === 'dashboard' && renderDashboardTabContent()}
+          {activeTab === 'content' && <ContentManager onUpdate={fetchInfluencerData} />}
+          {activeTab === 'streaming-settings' && <StreamingSettings />}
+          {activeTab === 'streaming-bookings' && <StreamingBookings />}
+          {activeTab === 'earnings' && <EarningsOverview />}
+          {activeTab === 'kyc' && <KycSubmissionSection />}
+        </>
+      ) : (
+        !loadingInfluencerProfile && <p className="text-textSecondary text-center py-10">Carregando perfil do influenciador...</p>
+      )}
+
 
       {showEditProfileModal && (
         <ProfileEditModal onClose={handleModalClose} onSuccess={handleModalSuccess} />

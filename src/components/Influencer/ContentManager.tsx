@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext'; // CORRIGIDO: Caminho de importação
 import { supabase } from '../../lib/supabase';
 import {
   uploadContentImage,
@@ -58,16 +58,16 @@ export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
   };
 
   if (loading) {
-    return <div className="text-center py-12">Carregando...</div>;
+    return <div className="text-center py-12 text-text">Carregando...</div>;
   }
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Meu Conteúdo</h2>
+        <h2 className="text-2xl font-bold text-text">Meu Conteúdo</h2>
         <button
           onClick={() => setShowUploadModal(true)}
-          className="flex items-center gap-2 bg-pink-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-pink-700 transition-colors"
+          className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary/80 transition-colors"
         >
           <Plus className="w-5 h-5" />
           Upload Novo Conteúdo
@@ -75,13 +75,13 @@ export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
       </div>
 
       {contents.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg">
-          <Video className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Nenhum conteúdo ainda</h3>
-          <p className="text-gray-600 mb-6">Comece fazendo upload de suas fotos, vídeos ou documentos</p>
+        <div className="text-center py-12 bg-surface rounded-xl border border-border">
+          <Video className="w-16 h-16 text-textSecondary mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-text mb-2">Nenhum conteúdo ainda</h3>
+          <p className="text-textSecondary mb-6">Comece fazendo upload de suas fotos, vídeos ou documentos</p>
           <button
             onClick={() => setShowUploadModal(true)}
-            className="bg-pink-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-pink-700 transition-colors"
+            className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary/80 transition-colors"
           >
             Upload Primeiro Conteúdo
           </button>
@@ -89,8 +89,8 @@ export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {contents.map((content) => (
-            <div key={content.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-              <div className="relative aspect-video bg-gray-200 flex items-center justify-center">
+            <div key={content.id} className="bg-surface rounded-xl shadow-lg border border-border overflow-hidden hover:shadow-xl transition-shadow">
+              <div className="relative aspect-video bg-background flex items-center justify-center">
                 {content.content_type === 'video' ? (
                   <video
                     src={content.file_url}
@@ -116,24 +116,24 @@ export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
                     }}
                   />
                 ) : (
-                  <div className="flex flex-col items-center justify-center text-gray-500">
+                  <div className="flex flex-col items-center justify-center text-textSecondary">
                     <FileText className="w-16 h-16" />
                     <span className="mt-2 text-sm font-medium">Documento</span>
                   </div>
                 )}
                 <div className="absolute top-2 right-2 flex gap-2">
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    content.is_free ? 'bg-green-500 text-white' : 'bg-pink-500 text-white'
+                    content.is_free ? 'bg-success text-white' : 'bg-primary text-white'
                   }`}>
                     {content.is_free ? 'Gratuito' : 'Pago'}
                   </span>
                   {content.is_purchasable && (
-                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-purple-600 text-white flex items-center gap-1">
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-secondary text-white flex items-center gap-1">
                       <DollarSign className="w-3 h-3" />
                       {content.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                   )}
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-900 text-white flex items-center gap-1">
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-background text-textSecondary flex items-center gap-1">
                     {content.content_type === 'video' ? <Video className="w-3 h-3" /> :
                      content.content_type === 'image' ? <ImageIcon className="w-3 h-3" /> :
                      <FileText className="w-3 h-3" />}
@@ -141,11 +141,11 @@ export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
                 </div>
               </div>
               <div className="p-4">
-                <h3 className="font-semibold text-gray-900 mb-1">{content.title}</h3>
+                <h3 className="font-semibold text-text mb-1">{content.title}</h3>
                 {content.description && (
-                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">{content.description}</p>
+                  <p className="text-sm text-textSecondary mb-3 line-clamp-2">{content.description}</p>
                 )}
-                <div className="flex items-center justify-between text-sm text-gray-500 mb-3">
+                <div className="flex items-center justify-between text-sm text-textSecondary mb-3">
                   <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1">
                       <Eye className="w-4 h-4" />
@@ -160,7 +160,7 @@ export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
                 </div>
                 <button
                   onClick={() => deleteContent(content.id)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-error/10 text-error rounded-lg hover:bg-error/20 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                   Excluir
@@ -317,65 +317,65 @@ function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-surface rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-2xl font-bold">Upload Novo Conteúdo</h3>
+            <h3 className="text-2xl font-bold text-text">Upload Novo Conteúdo</h3>
             <button
               type="button"
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-background rounded-lg transition-colors"
             >
-              <X className="w-6 h-6 text-gray-600" />
+              <X className="w-6 h-6 text-textSecondary" />
             </button>
           </div>
 
           {uploadError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+            <div className="bg-error/10 border border-error/30 text-error px-4 py-3 rounded-lg mb-4">
               {uploadError}
             </div>
           )}
 
           {uploadProgress && (
-            <div className="bg-pink-50 border border-pink-200 text-pink-700 px-4 py-3 rounded-lg mb-4">
+            <div className="bg-primary/10 border border-primary/30 text-primary px-4 py-3 rounded-lg mb-4">
               {uploadProgress}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Título</label>
+              <label className="block text-sm font-medium text-textSecondary mb-2">Título</label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-border bg-background text-text rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="Dê um título ao seu conteúdo"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
+              <label className="block text-sm font-medium text-textSecondary mb-2">Descrição</label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-border bg-background text-text rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="Descreva seu conteúdo"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Conteúdo</label>
+              <label className="block text-sm font-medium text-textSecondary mb-2">Tipo de Conteúdo</label>
               <div className="grid grid-cols-3 gap-4">
                 <button
                   type="button"
                   onClick={() => setContentType('image')}
                   className={`flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all ${
                     contentType === 'image'
-                      ? 'border-pink-500 bg-pink-50 text-pink-700'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border hover:border-textSecondary text-textSecondary'
                   }`}
                 >
                   <ImageIcon className="w-5 h-5" />
@@ -386,8 +386,8 @@ function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
                   onClick={() => setContentType('video')}
                   className={`flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all ${
                     contentType === 'video'
-                      ? 'border-pink-500 bg-pink-50 text-pink-700'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border hover:border-textSecondary text-textSecondary'
                   }`}
                 >
                   <Video className="w-5 h-5" />
@@ -398,8 +398,8 @@ function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
                   onClick={() => setContentType('document')}
                   className={`flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all ${
                     contentType === 'document'
-                      ? 'border-pink-500 bg-pink-50 text-pink-700'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border hover:border-textSecondary text-textSecondary'
                   }`}
                 >
                   <FileText className="w-5 h-5" />
@@ -409,18 +409,18 @@ function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-textSecondary mb-2">
                 Arquivo {contentType === 'image' ? '(Imagem)' : contentType === 'video' ? '(Vídeo)' : '(Documento)'}
               </label>
 
               {fileUrl && (
-                <div className="mb-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-sm text-green-700 font-semibold">✓ Arquivo enviado com sucesso!</p>
+                <div className="mb-3 p-4 bg-success/10 border border-success/30 rounded-lg">
+                  <p className="text-sm text-success font-semibold">✓ Arquivo enviado com sucesso!</p>
                   {contentType === 'image' && (
                     <img src={fileUrl} alt="Preview" className="mt-2 w-full h-40 object-cover rounded-lg" />
                   )}
                   {contentType === 'document' && (
-                    <div className="mt-2 flex items-center gap-2 text-gray-700">
+                    <div className="mt-2 flex items-center gap-2 text-text">
                       <FileText className="w-6 h-6" />
                       <span>{fileUrl.split('/').pop()}</span>
                     </div>
@@ -444,7 +444,7 @@ function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
               />
               <label
                 htmlFor="content-file-upload"
-                className={`inline-flex items-center gap-2 px-6 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors cursor-pointer font-semibold ${
+                className={`inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/80 transition-colors cursor-pointer font-semibold ${
                   uploading ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
@@ -457,7 +457,7 @@ function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
                   ? `Upload do Vídeo (máx ${formatFileSize(50 * 1024 * 1024)})`
                   : `Upload do Documento (máx ${formatFileSize(10 * 1024 * 1024)})`}
               </label>
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-textSecondary mt-2">
                 {contentType === 'image'
                   ? 'Formatos: JPEG, PNG, WebP'
                   : contentType === 'video'
@@ -468,48 +468,48 @@ function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
 
             {contentType === 'video' && thumbnailUrl && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Thumbnail do Vídeo</label>
+                <label className="block text-sm font-medium text-textSecondary mb-2">Thumbnail do Vídeo</label>
                 <input
                   type="url"
                   value={thumbnailUrl}
                   onChange={(e) => setThumbnailUrl(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-border bg-background text-text rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                   placeholder="https://exemplo.com/thumbnail.jpg"
                 />
               </div>
             )}
 
-            <div className="flex items-center gap-3 bg-gray-50 p-4 rounded-lg">
+            <div className="flex items-center gap-3 bg-background p-4 rounded-lg border border-border">
               <input
                 type="checkbox"
                 id="isFree"
                 checked={isFree}
                 onChange={(e) => setIsFree(e.target.checked)}
-                className="w-5 h-5 text-pink-600 rounded focus:ring-2 focus:ring-pink-500"
+                className="w-5 h-5 text-primary rounded focus:ring-2 focus:ring-primary"
               />
               <label htmlFor="isFree" className="flex-1">
-                <span className="font-medium text-gray-900">Conteúdo Gratuito</span>
-                <p className="text-sm text-gray-600">Marque se este conteúdo deve ser visível para todos</p>
+                <span className="font-medium text-text">Conteúdo Gratuito</span>
+                <p className="text-sm text-textSecondary">Marque se este conteúdo deve ser visível para todos</p>
               </label>
             </div>
 
-            <div className="flex items-center gap-3 bg-gray-50 p-4 rounded-lg">
+            <div className="flex items-center gap-3 bg-background p-4 rounded-lg border border-border">
               <input
                 type="checkbox"
                 id="isPurchasable"
                 checked={isPurchasable}
                 onChange={(e) => setIsPurchasable(e.target.checked)}
-                className="w-5 h-5 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
+                className="w-5 h-5 text-secondary rounded focus:ring-2 focus:ring-secondary"
               />
               <label htmlFor="isPurchasable" className="flex-1">
-                <span className="font-medium text-gray-900">Venda Avulsa</span>
-                <p className="text-sm text-gray-600">Permitir que usuários comprem este conteúdo individualmente (mesmo sem assinatura)</p>
+                <span className="font-medium text-text">Venda Avulsa</span>
+                <p className="text-sm text-textSecondary">Permitir que usuários comprem este conteúdo individualmente (mesmo sem assinatura)</p>
               </label>
             </div>
 
             {isPurchasable && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Preço (BRL)</label>
+                <label className="block text-sm font-medium text-textSecondary mb-2">Preço (BRL)</label>
                 <input
                   type="number"
                   value={price}
@@ -517,7 +517,7 @@ function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
                   min="0.01"
                   step="0.01"
                   required={isPurchasable}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-border bg-background text-text rounded-lg focus:ring-2 focus:ring-secondary focus:border-transparent"
                   placeholder="0.00"
                 />
               </div>
@@ -527,14 +527,14 @@ function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+                className="flex-1 px-6 py-3 border border-border text-textSecondary rounded-lg font-semibold hover:bg-background transition-colors"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={loading || uploading}
-                className="flex-1 px-6 py-3 bg-pink-600 text-white rounded-lg font-semibold hover:bg-pink-700 transition-colors disabled:opacity-50"
+                className="flex-1 px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary/80 transition-colors disabled:opacity-50"
               >
                 {loading ? 'Publicando...' : 'Publicar'}
               </button>
