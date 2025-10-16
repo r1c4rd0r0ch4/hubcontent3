@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { User, UserPlus, X, Calendar, MapPin, FileText, Camera } from 'lucide-react';
-import { uploadKycDocument, UploadResult, UploadError } from '../../lib/upload';
+import { uploadKycDocument } from '../../lib/upload';
 import type { Database } from '../../lib/database.types';
 import { supabase } from '../../lib/supabase'; // Ensure supabase is imported
 
@@ -15,6 +15,7 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
   const [userType, setUserType] = useState<'user' | 'influencer'>('user');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({}); // New state for field-specific errors
 
   // KYC Fields
   const [fullName, setFullName] = useState('');
@@ -38,9 +39,12 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
   const [proofOfAddressUploadStatus, setProofOfAddressUploadStatus] = useState<{ url: string; path: string } | null>(null);
   const [selfieWithIdUploadStatus, setSelfieWithIdStatus] = useState<{ url: string; path: string } | null>(null);
 
-  const handleFileChange = (setter: React.Dispatch<React.SetStateAction<File | null>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (setter: React.Dispatch<React.SetStateAction<File | null>>, fieldName: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setter(e.target.files[0]);
+      setFieldErrors(prev => ({ ...prev, [fieldName]: '' })); // Clear error for this field
+    } else {
+      setter(null);
     }
   };
 
@@ -92,32 +96,55 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setFieldErrors({}); // Clear previous field errors
     setLoading(true);
 
-    let kycData = undefined;
+    let currentFieldErrors: Record<string, string> = {};
+
+    // Basic validation for all users
+    if (!username) currentFieldErrors.username = 'Nome de usuário é obrigatório.';
+    if (!email) currentFieldErrors.email = 'Email é obrigatório.';
+    if (!password) currentFieldErrors.password = 'Senha é obrigatória.';
+    else if (password.length < 6) currentFieldErrors.password = 'A senha deve ter no mínimo 6 caracteres.';
+
+    // KYC Validation for influencers
     if (userType === 'influencer') {
-      if (!fullName || !dateOfBirth || !addressStreet || !addressCity || !addressState || !addressZip || !addressCountry || !documentType || !documentNumber || !idFrontFile || !idBackFile || !proofOfAddressFile || !selfieWithIdFile) {
-        setError('Todos os campos e documentos KYC são obrigatórios para influenciadores.');
-        setLoading(false);
-        return;
-      }
-      kycData = {
-        fullName,
-        dateOfBirth,
-        address: {
-          street: addressStreet,
-          city: addressCity,
-          state: addressState,
-          zip: addressZip,
-          country: addressCountry,
-        },
-        documentType,
-        documentNumber,
-      };
+      if (!fullName) currentFieldErrors.fullName = 'Nome completo é obrigatório.';
+      if (!dateOfBirth) currentFieldErrors.dateOfBirth = 'Data de nascimento é obrigatória.';
+      if (!addressStreet) currentFieldErrors.addressStreet = 'Rua e número são obrigatórios.';
+      if (!addressCity) currentFieldErrors.addressCity = 'Cidade é obrigatória.';
+      if (!addressState) currentFieldErrors.addressState = 'Estado é obrigatório.';
+      if (!addressZip) currentFieldErrors.addressZip = 'CEP é obrigatório.';
+      if (!addressCountry) currentFieldErrors.addressCountry = 'País é obrigatório.';
+      if (!documentType) currentFieldErrors.documentType = 'Tipo de documento é obrigatório.';
+      if (!documentNumber) currentFieldErrors.documentNumber = 'Número do documento é obrigatório.';
+      if (!idFrontFile) currentFieldErrors.idFrontFile = 'Foto da frente do documento é obrigatória.';
+      if (!idBackFile) currentFieldErrors.idBackFile = 'Foto do verso do documento é obrigatória.';
+      if (!proofOfAddressFile) currentFieldErrors.proofOfAddressFile = 'Comprovante de endereço é obrigatório.';
+      if (!selfieWithIdFile) currentFieldErrors.selfieWithIdFile = 'Selfie com documento é obrigatória.';
+    }
+
+    if (Object.keys(currentFieldErrors).length > 0) {
+      setFieldErrors(currentFieldErrors);
+      setError('Por favor, preencha todos os campos e envie todos os documentos obrigatórios.');
+      setLoading(false);
+      return;
     }
 
     console.log('[SignUpForm] Iniciando processo de cadastro...');
-    const { error: signUpError, data: userData } = await signUp(email, password, username, userType, kycData);
+    const { error: signUpError, data: userData } = await signUp(email, password, username, userType, {
+      fullName,
+      dateOfBirth,
+      address: {
+        street: addressStreet,
+        city: addressCity,
+        state: addressState,
+        zip: addressZip,
+        country: addressCountry,
+      },
+      documentType,
+      documentNumber,
+    });
 
     if (signUpError) {
       console.error('[SignUpForm] Erro no cadastro do usuário:', signUpError);
@@ -145,6 +172,14 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
     // Optionally, show a success message or redirect
     if (onClose) onClose();
   };
+
+  const inputClass = (fieldName: string) =>
+    `w-full px-4 py-3 rounded-lg border ${fieldErrors[fieldName] ? 'border-error focus:ring-error' : 'border-border focus:ring-primary'} bg-background focus:ring-2 focus:border-transparent transition-all text-text`;
+
+  const fileInputClass = (fieldName: string) =>
+    `flex items-center justify-between p-4 border ${fieldErrors[fieldName] ? 'border-error' : 'border-border'} rounded-lg bg-background`;
+
+  const errorTextClass = "text-error text-sm mt-1";
 
   return (
     <div className={`w-full mx-auto transition-all duration-300 ${userType === 'influencer' ? 'max-w-4xl' : 'max-w-xl'}`}> {/* Ajustado max-w dinamicamente */}
@@ -204,11 +239,11 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
               id="username"
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-text"
+              onChange={(e) => { setUsername(e.target.value); setFieldErrors(prev => ({ ...prev, username: '' })); }}
+              className={inputClass('username')}
               placeholder="seunome"
             />
+            {fieldErrors.username && <p className={errorTextClass}>{fieldErrors.username}</p>}
           </div>
 
           <div>
@@ -219,11 +254,11 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
               id="email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-text"
+              onChange={(e) => { setEmail(e.target.value); setFieldErrors(prev => ({ ...prev, email: '' })); }}
+              className={inputClass('email')}
               placeholder="seu@email.com"
             />
+            {fieldErrors.email && <p className={errorTextClass}>{fieldErrors.email}</p>}
           </div>
 
           <div>
@@ -234,12 +269,11 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
               id="password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-text"
+              onChange={(e) => { setPassword(e.target.value); setFieldErrors(prev => ({ ...prev, password: '' })); }}
+              className={inputClass('password')}
               placeholder="Mínimo 6 caracteres"
             />
+            {fieldErrors.password && <p className={errorTextClass}>{fieldErrors.password}</p>}
           </div>
 
           {userType === 'influencer' && (
@@ -254,11 +288,11 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                   id="fullName"
                   type="text"
                   value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required={userType === 'influencer'}
-                  className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-text"
+                  onChange={(e) => { setFullName(e.target.value); setFieldErrors(prev => ({ ...prev, fullName: '' })); }}
+                  className={inputClass('fullName')}
                   placeholder="Seu nome completo"
                 />
+                {fieldErrors.fullName && <p className={errorTextClass}>{fieldErrors.fullName}</p>}
               </div>
 
               <div>
@@ -270,12 +304,12 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                     id="dateOfBirth"
                     type="date"
                     value={dateOfBirth}
-                    onChange={(e) => setDateOfBirth(e.target.value)}
-                    required={userType === 'influencer'}
-                    className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all pr-10 text-text"
+                    onChange={(e) => { setDateOfBirth(e.target.value); setFieldErrors(prev => ({ ...prev, dateOfBirth: '' })); }}
+                    className={`${inputClass('dateOfBirth')} pr-10`}
                   />
                   <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-textSecondary w-5 h-5" />
                 </div>
+                {fieldErrors.dateOfBirth && <p className={errorTextClass}>{fieldErrors.dateOfBirth}</p>}
               </div>
 
               <div className="space-y-4">
@@ -285,46 +319,54 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                 <input
                   type="text"
                   value={addressStreet}
-                  onChange={(e) => setAddressStreet(e.target.value)}
-                  required={userType === 'influencer'}
-                  className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-text"
+                  onChange={(e) => { setAddressStreet(e.target.value); setFieldErrors(prev => ({ ...prev, addressStreet: '' })); }}
+                  className={inputClass('addressStreet')}
                   placeholder="Rua, número, complemento"
                 />
+                {fieldErrors.addressStreet && <p className={errorTextClass}>{fieldErrors.addressStreet}</p>}
                 <div className="grid grid-cols-2 gap-4">
-                  <input
-                    type="text"
-                    value={addressCity}
-                    onChange={(e) => setAddressCity(e.target.value)}
-                    required={userType === 'influencer'}
-                    className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-text"
-                    placeholder="Cidade"
-                  />
-                  <input
-                    type="text"
-                    value={addressState}
-                    onChange={(e) => setAddressState(e.target.value)}
-                    required={userType === 'influencer'}
-                    className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-text"
-                    placeholder="Estado"
-                  />
+                  <div>
+                    <input
+                      type="text"
+                      value={addressCity}
+                      onChange={(e) => { setAddressCity(e.target.value); setFieldErrors(prev => ({ ...prev, addressCity: '' })); }}
+                      className={inputClass('addressCity')}
+                      placeholder="Cidade"
+                    />
+                    {fieldErrors.addressCity && <p className={errorTextClass}>{fieldErrors.addressCity}</p>}
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      value={addressState}
+                      onChange={(e) => { setAddressState(e.target.value); setFieldErrors(prev => ({ ...prev, addressState: '' })); }}
+                      className={inputClass('addressState')}
+                      placeholder="Estado"
+                    />
+                    {fieldErrors.addressState && <p className={errorTextClass}>{fieldErrors.addressState}</p>}
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <input
-                    type="text"
-                    value={addressZip}
-                    onChange={(e) => setAddressZip(e.target.value)}
-                    required={userType === 'influencer'}
-                    className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-text"
-                    placeholder="CEP"
-                  />
-                  <input
-                    type="text"
-                    value={addressCountry}
-                    onChange={(e) => setAddressCountry(e.target.value)}
-                    required={userType === 'influencer'}
-                    className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-text"
-                    placeholder="País"
-                  />
+                  <div>
+                    <input
+                      type="text"
+                      value={addressZip}
+                      onChange={(e) => { setAddressZip(e.target.value); setFieldErrors(prev => ({ ...prev, addressZip: '' })); }}
+                      className={inputClass('addressZip')}
+                      placeholder="CEP"
+                    />
+                    {fieldErrors.addressZip && <p className={errorTextClass}>{fieldErrors.addressZip}</p>}
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      value={addressCountry}
+                      onChange={(e) => { setAddressCountry(e.target.value); setFieldErrors(prev => ({ ...prev, addressCountry: '' })); }}
+                      className={inputClass('addressCountry')}
+                      placeholder="País"
+                    />
+                    {fieldErrors.addressCountry && <p className={errorTextClass}>{fieldErrors.addressCountry}</p>}
+                  </div>
                 </div>
               </div>
 
@@ -335,9 +377,8 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                 <select
                   id="documentType"
                   value={documentType}
-                  onChange={(e) => setDocumentType(e.target.value)}
-                  required={userType === 'influencer'}
-                  className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-text"
+                  onChange={(e) => { setDocumentType(e.target.value); setFieldErrors(prev => ({ ...prev, documentType: '' })); }}
+                  className={inputClass('documentType')}
                 >
                   <option value="">Selecione</option>
                   <option value="id_front">RG/CNH (Frente)</option>
@@ -346,6 +387,7 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                   <option value="passport">Passaporte</option>
                   <option value="other">Outro</option>
                 </select>
+                {fieldErrors.documentType && <p className={errorTextClass}>{fieldErrors.documentType}</p>}
               </div>
 
               <div>
@@ -356,17 +398,17 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                   id="documentNumber"
                   type="text"
                   value={documentNumber}
-                  onChange={(e) => setDocumentNumber(e.target.value)}
-                  required={userType === 'influencer'}
-                  className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-text"
+                  onChange={(e) => { setDocumentNumber(e.target.value); setFieldErrors(prev => ({ ...prev, documentNumber: '' })); }}
+                  className={inputClass('documentNumber')}
                   placeholder="Número do documento"
                 />
+                {fieldErrors.documentNumber && <p className={errorTextClass}>{fieldErrors.documentNumber}</p>}
               </div>
 
               <div className="space-y-4">
                 <h4 className="text-lg font-semibold text-text">Upload de Documentos</h4>
 
-                <div className="flex items-center justify-between p-4 border border-border rounded-lg bg-background">
+                <div className={fileInputClass('idFrontFile')}>
                   <label htmlFor="idFrontFile" className="flex items-center gap-3 text-sm font-medium text-textSecondary cursor-pointer">
                     <FileText className="w-5 h-5 text-primary" />
                     <span>Foto do Documento (Frente)</span>
@@ -375,15 +417,15 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                     id="idFrontFile"
                     type="file"
                     accept="image/jpeg,image/png,image/webp,application/pdf"
-                    onChange={handleFileChange(setIdFrontFile)}
-                    required={userType === 'influencer'}
+                    onChange={handleFileChange(setIdFrontFile, 'idFrontFile')}
                     className="hidden"
                   />
                   {idFrontFile && <span className="text-xs text-textSecondary">{idFrontFile.name}</span>}
                   {!idFrontFile && <span className="text-xs text-textSecondary">Nenhum arquivo</span>}
                 </div>
+                {fieldErrors.idFrontFile && <p className={errorTextClass}>{fieldErrors.idFrontFile}</p>}
 
-                <div className="flex items-center justify-between p-4 border border-border rounded-lg bg-background">
+                <div className={fileInputClass('idBackFile')}>
                   <label htmlFor="idBackFile" className="flex items-center gap-3 text-sm font-medium text-textSecondary cursor-pointer">
                     <FileText className="w-5 h-5 text-primary" />
                     <span>Foto do Documento (Verso)</span>
@@ -392,15 +434,15 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                     id="idBackFile"
                     type="file"
                     accept="image/jpeg,image/png,image/webp,application/pdf"
-                    onChange={handleFileChange(setIdBackFile)}
-                    required={userType === 'influencer'}
+                    onChange={handleFileChange(setIdBackFile, 'idBackFile')}
                     className="hidden"
                   />
                   {idBackFile && <span className="text-xs text-textSecondary">{idBackFile.name}</span>}
                   {!idBackFile && <span className="text-xs text-textSecondary">Nenhum arquivo</span>}
                 </div>
+                {fieldErrors.idBackFile && <p className={errorTextClass}>{fieldErrors.idBackFile}</p>}
 
-                <div className="flex items-center justify-between p-4 border border-border rounded-lg bg-background">
+                <div className={fileInputClass('proofOfAddressFile')}>
                   <label htmlFor="proofOfAddressFile" className="flex items-center gap-3 text-sm font-medium text-textSecondary cursor-pointer">
                     <MapPin className="w-5 h-5 text-primary" />
                     <span>Comprovante de Endereço</span>
@@ -409,15 +451,15 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                     id="proofOfAddressFile"
                     type="file"
                     accept="image/jpeg,image/png,image/webp,application/pdf"
-                    onChange={handleFileChange(setProofOfAddressFile)}
-                    required={userType === 'influencer'}
+                    onChange={handleFileChange(setProofOfAddressFile, 'proofOfAddressFile')}
                     className="hidden"
                   />
                   {proofOfAddressFile && <span className="text-xs text-textSecondary">{proofOfAddressFile.name}</span>}
                   {!proofOfAddressFile && <span className="text-xs text-textSecondary">Nenhum arquivo</span>}
                 </div>
+                {fieldErrors.proofOfAddressFile && <p className={errorTextClass}>{fieldErrors.proofOfAddressFile}</p>}
 
-                <div className="flex items-center justify-between p-4 border border-border rounded-lg bg-background">
+                <div className={fileInputClass('selfieWithIdFile')}>
                   <label htmlFor="selfieWithIdFile" className="flex items-center gap-3 text-sm font-medium text-textSecondary cursor-pointer">
                     <Camera className="w-5 h-5 text-primary" />
                     <span>Selfie com Documento</span>
@@ -426,13 +468,13 @@ export function SignUpForm({ onToggle, onClose }: { onToggle: () => void; onClos
                     id="selfieWithIdFile"
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
-                    onChange={handleFileChange(setSelfieWithIdFile)}
-                    required={userType === 'influencer'}
+                    onChange={handleFileChange(setSelfieWithIdFile, 'selfieWithIdFile')}
                     className="hidden"
                   />
                   {selfieWithIdFile && <span className="text-xs text-textSecondary">{selfieWithIdFile.name}</span>}
                   {!selfieWithIdFile && <span className="text-xs text-textSecondary">Nenhum arquivo</span>}
                 </div>
+                {fieldErrors.selfieWithIdFile && <p className={errorTextClass}>{fieldErrors.selfieWithIdFile}</p>}
               </div>
             </div>
           )}

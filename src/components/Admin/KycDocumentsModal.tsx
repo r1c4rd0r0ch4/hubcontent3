@@ -45,9 +45,9 @@ export const KycDocumentsModal: React.FC<KycDocumentsModalProps> = ({ userId, us
 
       if (error) throw error;
       console.log(`[KycDocumentsModal] Fetched ${data?.length} documents. Example file_url:`, data?.[0]?.file_url);
-      console.log('[KycDocumentsModal] Documents fetched:', data); // Log all fetched documents
+      console.log('[KycDocumentsModal] Data fetched from DB:', data); // Log raw data from DB
       setKycDocuments(data || []);
-      console.log('[KycDocumentsModal] State kycDocuments updated after fetch:', data?.map(d => ({ id: d.id, status: d.status })));
+      console.log('[KycDocumentsModal] kycDocuments state after set:', data?.map(d => ({ id: d.id, status: d.status }))); // Log state after update
     } catch (err: any) {
       console.error('[KycDocumentsModal] Error fetching KYC documents for user:', err);
       setError(err.message || 'Falha ao carregar documentos KYC.');
@@ -174,8 +174,9 @@ export const KycDocumentsModal: React.FC<KycDocumentsModalProps> = ({ userId, us
       setShowRejectModal(false);
       setCurrentDocToReject(null);
       setRejectionReason('');
-      console.log('[KycDocumentsModal] Calling fetchKycDocuments() to refresh UI in finally block.');
+      console.log('[KycDocumentsModal] Before calling fetchKycDocuments, current kycDocuments state:', kycDocuments.map(d => ({ id: d.id, status: d.id === docId ? status : d.status }))); // Log state before refresh
       fetchKycDocuments(); // Ensure UI refresh always happens
+      onKycStatusChange(); // Trigger parent refetch as well
     }
   };
 

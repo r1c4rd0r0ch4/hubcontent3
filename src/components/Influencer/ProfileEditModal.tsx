@@ -416,9 +416,9 @@ export function ProfileEditModal({ onClose, onSuccess }: ProfileEditModalProps) 
               </div>
               <div className="mt-2 bg-pink-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-sm text-blue-800">
-                  <span className="font-semibold">Você receberá:</span> R$ {(influencerData.subscription_price * 0.8).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} por assinante (80%)
+                  <span className="font-semibold">Você receberá:</span> R$ {(influencerData.subscription_price * 0.9).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} por assinante (90%)
                 </p>
-                <p className="text-xs text-pink-600 mt-1">Taxa da plataforma: 20%</p>
+                <p className="text-xs text-pink-600 mt-1">Taxa da plataforma: 10%</p>
               </div>
             </div>
           </div>
