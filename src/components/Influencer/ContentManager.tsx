@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext'; // CORRIGIDO: Caminho de importação
+import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import {
   uploadContentImage,
@@ -15,30 +15,46 @@ import {
 import { Plus, Image as ImageIcon, Video, FileText, Trash2, Eye, Heart, Upload, X, DollarSign } from 'lucide-react';
 import type { Database } from '../../lib/database.types';
 
-type Content = Database['public']['Tables']['content']['Row'];
+type Content = Database['public']['Tables']['content_posts']['Row'];
 type ContentType = 'image' | 'video' | 'document';
 
 export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
   const { profile } = useAuth();
+  console.log('[ContentManager] Component Rendered. Current profile:', profile);
   const [contents, setContents] = useState<Content[]>([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('[ContentManager] useEffect triggered. Profile in useEffect:', profile);
     loadContents();
   }, [profile]);
 
   const loadContents = async () => {
-    if (!profile) return;
+    console.log('[ContentManager] loadContents called.');
+    if (!profile) {
+      console.log('[ContentManager] loadContents: No profile found, returning. Profile was:', profile);
+      setLoading(false);
+      return;
+    }
 
+    console.log('[ContentManager] loadContents: Attempting to fetch content for user_id:', profile.id);
     const { data, error } = await supabase
-      .from('content')
+      .from('content_posts')
       .select('*')
-      .eq('influencer_id', profile.id)
+      .eq('user_id', profile.id)
       .order('created_at', { ascending: false });
 
-    if (!error && data) {
+    if (error) {
+      console.error('[ContentManager] loadContents: Error fetching content:', error);
+      alert('Erro ao carregar conteúdo: ' + error.message);
+    } else if (data) {
+      console.log('[ContentManager] loadContents: Content fetched successfully. Count:', data.length, 'Data:', data);
       setContents(data);
+      console.log('[ContentManager] loadContents: Contents state updated. Current contents count:', data.length);
+    } else {
+      console.log('[ContentManager] loadContents: No data or error returned, data is null/undefined.');
+      setContents([]);
     }
     setLoading(false);
   };
@@ -47,20 +63,25 @@ export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
     if (!confirm('Tem certeza que deseja excluir este conteúdo?')) return;
 
     const { error } = await supabase
-      .from('content')
+      .from('content_posts')
       .delete()
       .eq('id', id);
 
     if (!error) {
       loadContents();
       onUpdate();
+    } else {
+      console.error('[ContentManager] deleteContent: Error deleting content:', error);
+      alert('Erro ao excluir conteúdo: ' + error.message);
     }
   };
 
   if (loading) {
+    console.log('[ContentManager] Rendering loading state...'); // NOVO LOG
     return <div className="text-center py-12 text-text">Carregando...</div>;
   }
 
+  console.log('[ContentManager] Rendering content list/empty state. Contents count:', contents.length); // NOVO LOG
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -91,7 +112,7 @@ export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
           {contents.map((content) => (
             <div key={content.id} className="bg-surface rounded-xl shadow-lg border border-border overflow-hidden hover:shadow-xl transition-shadow">
               <div className="relative aspect-video bg-background flex items-center justify-center">
-                {content.content_type === 'video' ? (
+                {content.type === 'video' ? (
                   <video
                     src={content.file_url}
                     className="w-full h-full object-cover"
@@ -103,7 +124,7 @@ export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
                       target.poster = content.thumbnail_url || '';
                     }}
                   />
-                ) : content.content_type === 'image' ? (
+                ) : content.type === 'image' ? (
                   <img
                     src={content.thumbnail_url || content.file_url}
                     alt={content.title}
@@ -134,8 +155,8 @@ export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
                     </span>
                   )}
                   <span className="px-3 py-1 rounded-full text-xs font-semibold bg-background text-textSecondary flex items-center gap-1">
-                    {content.content_type === 'video' ? <Video className="w-3 h-3" /> :
-                     content.content_type === 'image' ? <ImageIcon className="w-3 h-3" /> :
+                    {content.type === 'video' ? <Video className="w-3 h-3" /> :
+                     content.type === 'image' ? <ImageIcon className="w-3 h-3" /> :
                      <FileText className="w-3 h-3" />}
                   </span>
                 </div>
@@ -153,7 +174,7 @@ export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
                     </span>
                     <span className="flex items-center gap-1">
                       <Heart className="w-4 h-4" />
-                      {content.likes_count}
+                      {content.likes_count || 0}
                     </span>
                   </div>
                   <span className="text-xs">{new Date(content.created_at).toLocaleDateString('pt-BR')}</span>
@@ -191,6 +212,7 @@ function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
   const [description, setDescription] = useState('');
   const [contentType, setContentType] = useState<ContentType>('image');
   const [fileUrl, setFileUrl] = useState('');
+  const [filePath, setFilePath] = useState('');
   const [thumbnailUrl, setThumbnailUrl] = useState('');
   const [isFree, setIsFree] = useState(false);
   const [isPurchasable, setIsPurchasable] = useState(false);
@@ -209,23 +231,19 @@ function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
 
     let validation;
     let uploadFunction;
-    let bucketName: 'content-images' | 'content-videos' | 'content-documents';
     let progressMessage: string;
 
     if (contentType === 'image') {
       validation = validateImageFile(file);
       uploadFunction = uploadContentImage;
-      bucketName = 'content-images';
       progressMessage = 'Fazendo upload da imagem...';
     } else if (contentType === 'video') {
       validation = validateVideoFile(file);
       uploadFunction = uploadContentVideo;
-      bucketName = 'content-videos';
       progressMessage = 'Fazendo upload do vídeo... Isso pode levar alguns minutos.';
     } else { // contentType === 'document'
       validation = validateDocumentFile(file);
       uploadFunction = uploadContentDocument;
-      bucketName = 'content-documents';
       progressMessage = 'Fazendo upload do documento...';
     }
 
@@ -248,12 +266,12 @@ function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
 
     if (data) {
       setFileUrl(data.url);
+      setFilePath(data.path);
       setUploadError('');
 
       if (contentType === 'image' || contentType === 'document') {
-        setThumbnailUrl(data.url); // For images and documents, file_url can be thumbnail_url
+        setThumbnailUrl(data.url);
       } else if (contentType === 'video') {
-        // Generate and upload thumbnail for video
         setUploadProgress('Gerando thumbnail do vídeo...');
         const { data: thumbnailBlob, error: thumbError } = await generateVideoThumbnail(file);
 
@@ -283,7 +301,7 @@ function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile || !fileUrl) {
+    if (!profile || !fileUrl || !filePath) {
       setUploadError('Por favor, faça upload do arquivo primeiro');
       return;
     }
@@ -294,16 +312,18 @@ function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
 
     setLoading(true);
 
-    const { error } = await supabase.from('content').insert({
-      influencer_id: profile.id,
+    const { error } = await supabase.from('content_posts').insert({
+      user_id: profile.id,
       title,
       description,
-      content_type: contentType,
+      type: contentType,
       file_url: fileUrl,
+      file_path: filePath,
       thumbnail_url: thumbnailUrl || null,
       is_free: isFree,
       is_purchasable: isPurchasable,
       price: isPurchasable ? price : 0,
+      status: 'pending',
     });
 
     setLoading(false);
@@ -517,7 +537,7 @@ function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
                   min="0.01"
                   step="0.01"
                   required={isPurchasable}
-                  className="w-full px-4 py-2 border border-border bg-background text-text rounded-lg focus:ring-2 focus:ring-secondary focus:border-transparent"
+                  className="w-full px-4 py-2 border border-border bg-background text-text rounded-lg focus:ring-2 focus://ring-secondary focus:border-transparent"
                   placeholder="0.00"
                 />
               </div>

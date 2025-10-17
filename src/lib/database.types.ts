@@ -58,6 +58,9 @@ export type Database = {
           file_path: string
           file_url: string
           id: string
+          is_free: boolean // ADDED
+          is_purchasable: boolean // ADDED
+          price: number // ADDED
           status: string
           thumbnail_url: string | null
           title: string
@@ -71,6 +74,9 @@ export type Database = {
           file_path: string
           file_url: string
           id?: string
+          is_free?: boolean // ADDED
+          is_purchasable?: boolean // ADDED
+          price?: number // ADDED
           status?: string
           thumbnail_url?: string | null
           title: string
@@ -84,6 +90,9 @@ export type Database = {
           file_path?: string
           file_url?: string
           id?: string
+          is_free?: boolean // ADDED
+          is_purchasable?: boolean // ADDED
+          price?: number // ADDED
           status?: string
           thumbnail_url?: string | null
           title?: string
@@ -408,6 +417,7 @@ export type Tables<
     ? (PublicSchema["Tables"] &
         PublicSchema["Views"])[PublicTableNameOrOptions] extends {
         Row: infer R
+      }
       ? R
       : never
     : never
@@ -464,5 +474,5 @@ export type Enums<
 > = PublicTableNameOrOptions extends { schema: keyof Database }
   ? Database[PublicTableNameOrOptions["schema"]]["Enums"][EnumName]
   : PublicTableNameOrOptions extends keyof PublicSchema["Enums"]
-    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+    ? PublicSchema["Enums"][PublicTableNameOrOptions]
     : never

@@ -11,7 +11,7 @@ import { EarningsOverview } from './EarningsOverview';
 import { StreamingBookings } from './StreamingBookings';
 import { Messages } from '../Shared/Messages';
 
-type Content = Database['public']['Tables']['content']['Row'];
+type Content = Database['public']['Tables']['content_posts']['Row'];
 type Subscription = Database['public']['Tables']['subscriptions']['Row'];
 type InfluencerProfile = Database['public']['Tables']['influencer_profiles']['Row'];
 
@@ -22,13 +22,16 @@ export function InfluencerDashboard() {
   const [influencerProfileData, setInfluencerProfileData] = useState<InfluencerProfile | null>(null);
   const [loadingContent, setLoadingContent] = useState(true);
   const [loadingSubscriptions, setLoadingSubscriptions] = useState(true);
-  const [loadingInfluencerProfile, setLoadingInfluencerProfile] = useState(true); {/* CORRIGIDO AQUI */}
+  const [loadingInfluencerProfile, setLoadingInfluencerProfile] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'streaming-settings' | 'streaming-bookings' | 'earnings' | 'kyc' | 'messages'>('dashboard');
 
+  console.log('[InfluencerDashboard] Component Rendered. Active Tab:', activeTab, 'Profile:', profile); // NOVO LOG
+
   const fetchInfluencerData = useCallback(async () => {
     if (!profile) {
+      console.log('[InfluencerDashboard] fetchInfluencerData: No profile found, returning.');
       setLoadingContent(false);
       setLoadingSubscriptions(false);
       setLoadingInfluencerProfile(false);
@@ -36,6 +39,7 @@ export function InfluencerDashboard() {
     }
 
     setError(null);
+    console.log('[InfluencerDashboard] fetchInfluencerData: Fetching data for profile ID:', profile.id);
 
     setLoadingInfluencerProfile(true);
     const { data: influencerData, error: influencerError } = await supabase
@@ -45,7 +49,7 @@ export function InfluencerDashboard() {
       .maybeSingle();
 
     if (influencerError) {
-      console.error('Error fetching influencer profile:', influencerError.message);
+      console.error('[InfluencerDashboard] Error fetching influencer profile:', influencerError.message);
       setError('Não foi possível carregar o perfil do influenciador.');
       setLoadingContent(false);
       setLoadingSubscriptions(false);
@@ -55,28 +59,30 @@ export function InfluencerDashboard() {
 
     setInfluencerProfileData(influencerData);
     setLoadingInfluencerProfile(false);
+    console.log('[InfluencerDashboard] Influencer profile data:', influencerData);
+
 
     if (!influencerData) {
+      console.log('[InfluencerDashboard] No influencer profile data found, skipping content and subscriptions fetch.');
       setLoadingContent(false);
       setLoadingSubscriptions(false);
       return;
     }
 
-    const influencerId = influencerData.id;
-
     setLoadingContent(true);
     try {
       const { data, error } = await supabase
-        .from('content')
+        .from('content_posts')
         .select('*')
-        .eq('influencer_id', influencerId)
-        .eq('status', 'approved')
+        .eq('user_id', profile.id)
+        .eq('status', 'approved') // Apenas conteúdo aprovado para o dashboard
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       setContent(data || []);
+      console.log('[InfluencerDashboard] Content fetched for dashboard. Count:', data?.length, 'Data:', data);
     } catch (err: any) {
-      console.error('Error fetching content:', err.message);
+      console.error('[InfluencerDashboard] Error fetching content:', err.message);
       setError('Falha ao carregar conteúdo: ' + err.message);
     } finally {
       setLoadingContent(false);
@@ -87,13 +93,14 @@ export function InfluencerDashboard() {
       const { data, error } = await supabase
         .from('subscriptions')
         .select('*')
-        .eq('influencer_id', influencerId)
+        .eq('influencer_id', influencerData.user_id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       setSubscriptions(data || []);
+      console.log('[InfluencerDashboard] Subscriptions fetched. Count:', data?.length, 'Data:', data);
     } catch (err: any) {
-      console.error('Error fetching subscriptions:', err.message);
+      console.error('[InfluencerDashboard] Error fetching subscriptions:', err.message);
       setError('Falha ao carregar assinaturas: ' + err.message);
     } finally {
       setLoadingSubscriptions(false);
@@ -102,7 +109,10 @@ export function InfluencerDashboard() {
 
   useEffect(() => {
     if (profile && profile.user_type === 'influencer') {
+      console.log('[InfluencerDashboard] useEffect: profile is influencer, calling fetchInfluencerData.');
       fetchInfluencerData();
+    } else {
+      console.log('[InfluencerDashboard] useEffect: profile is not influencer or null.');
     }
   }, [profile, fetchInfluencerData]);
 
@@ -228,7 +238,7 @@ export function InfluencerDashboard() {
                     )}
                     {influencerProfileData.tiktok && (
                       <a
-                        href={`https://tiktok.com/@${influencerProfileData.tiktok.replace('@', '')}`}
+                        href={`https://tiktok.com/${influencerProfileData.tiktok.startsWith('@') ? '' : '@'}${influencerProfileData.tiktok.replace('@', '')}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 px-4 py-2 bg-accent/10 text-accent rounded-full hover:bg-accent/20 transition-colors text-sm font-medium group"
@@ -263,13 +273,13 @@ export function InfluencerDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {content.map((item) => (
                 <div key={item.id} className="bg-surface rounded-xl shadow-lg border border-border overflow-hidden">
-                  <img src={item.thumbnail_url || item.media_url} alt={item.title} className="w-full h-48 object-cover" />
+                  <img src={item.thumbnail_url || item.file_url} alt={item.title} className="w-full h-48 object-cover" />
                   <div className="p-4">
                     <h4 className="text-lg font-semibold text-text mb-2">{item.title}</h4>
                     <p className="text-sm text-textSecondary mb-3 line-clamp-2">{item.description}</p>
                     <div className="flex items-center justify-between text-textSecondary text-sm">
-                      <span className="flex items-center gap-1"><Eye size={16} /> {item.views_count}</span>
-                      <span className="flex items-center gap-1"><Heart size={16} /> {item.likes_count}</span>
+                      <span className="flex items-center gap-1"><Eye size={16} /> {item.views_count || 0}</span>
+                      <span className="flex items-center gap-1"><Heart size={16} /> {item.likes_count || 0}</span>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${item.status === 'approved' ? 'bg-success/20 text-success' : item.status === 'pending' ? 'bg-warning/20 text-warning' : 'bg-error/20 text-error'}`}>
                         {item.status}
                       </span>
@@ -340,7 +350,10 @@ export function InfluencerDashboard() {
         </h2>
         <div className="flex flex-wrap items-center gap-4">
           <button
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => {
+              setActiveTab('dashboard');
+              console.log('[InfluencerDashboard] Tab changed to "dashboard".'); // NOVO LOG
+            }}
             className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'dashboard'
                 ? 'bg-primary text-white shadow-md'
@@ -350,7 +363,10 @@ export function InfluencerDashboard() {
             <LayoutDashboard className="w-5 h-5" /> Painel
           </button>
           <button
-            onClick={() => setActiveTab('content')}
+            onClick={() => {
+              setActiveTab('content');
+              console.log('[InfluencerDashboard] Tab changed to "content".'); // NOVO LOG
+            }}
             className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'content'
                 ? 'bg-primary text-white shadow-md'
@@ -360,7 +376,10 @@ export function InfluencerDashboard() {
             <FileText className="w-5 h-5" /> Conteúdo
           </button>
           <button
-            onClick={() => setActiveTab('streaming-settings')}
+            onClick={() => {
+              setActiveTab('streaming-settings');
+              console.log('[InfluencerDashboard] Tab changed to "streaming-settings".'); // NOVO LOG
+            }}
             className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'streaming-settings'
                 ? 'bg-primary text-white shadow-md'
@@ -370,7 +389,10 @@ export function InfluencerDashboard() {
             <Video className="w-5 h-5" /> Config. Streaming
           </button>
           <button
-            onClick={() => setActiveTab('streaming-bookings')}
+            onClick={() => {
+              setActiveTab('streaming-bookings');
+              console.log('[InfluencerDashboard] Tab changed to "streaming-bookings".'); // NOVO LOG
+            }}
             className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'streaming-bookings'
                 ? 'bg-primary text-white shadow-md'
@@ -380,7 +402,10 @@ export function InfluencerDashboard() {
             <Calendar className="w-5 h-5" /> Reservas Streaming
           </button>
           <button
-            onClick={() => setActiveTab('earnings')}
+            onClick={() => {
+              setActiveTab('earnings');
+              console.log('[InfluencerDashboard] Tab changed to "earnings".'); // NOVO LOG
+            }}
             className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'earnings'
                 ? 'bg-primary text-white shadow-md'
@@ -390,7 +415,10 @@ export function InfluencerDashboard() {
             <DollarSign className="w-5 h-5" /> Ganhos
           </button>
           <button
-            onClick={() => setActiveTab('kyc')}
+            onClick={() => {
+              setActiveTab('kyc');
+              console.log('[InfluencerDashboard] Tab changed to "kyc".'); // NOVO LOG
+            }}
             className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'kyc'
                 ? 'bg-primary text-white shadow-md'
@@ -400,7 +428,10 @@ export function InfluencerDashboard() {
             <ShieldCheck className="w-5 h-5" /> KYC
           </button>
           <button
-            onClick={() => setActiveTab('messages')}
+            onClick={() => {
+              setActiveTab('messages');
+              console.log('[InfluencerDashboard] Tab changed to "messages".'); // NOVO LOG
+            }}
             className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'messages'
                 ? 'bg-primary text-white shadow-md'
@@ -423,7 +454,7 @@ export function InfluencerDashboard() {
 
       {error && <p className="text-error text-center mb-4">{error}</p>}
 
-      {influencerProfileData?.id ? (
+      {influencerProfileData?.user_id ? (
         <>
           {activeTab === 'dashboard' && renderDashboardTabContent()}
           {activeTab === 'content' && <ContentManager onUpdate={fetchInfluencerData} />}
