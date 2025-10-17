@@ -23,7 +23,7 @@ interface InfluencerData {
   instagram: string | null;
   twitter: string | null;
   tiktok: string | null;
-  total_subscribers: number;
+  total_subscribers: number; // Now dynamic
   is_subscribed: boolean;
   subscription_expires?: string;
 }
@@ -82,7 +82,7 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
   const loadInfluencerData = async () => {
     const { data: profileData } = await supabase
       .from('profiles')
-      .select('*, influencer_profiles(subscription_price, instagram, twitter, tiktok, other_links, total_subscribers)')
+      .select('*, influencer_profiles(subscription_price, instagram, twitter, tiktok, other_links)') // Removed total_subscribers from select
       .eq('id', influencerId)
       .maybeSingle();
 
@@ -101,6 +101,15 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
       subscriptionExpires = subData?.expires_at;
     }
 
+    // Fetch dynamic subscriber count
+    const { data: subscriberCountData, error: countError } = await supabase.rpc('get_influencer_subscriber_count', {
+      p_influencer_id: influencerId,
+    });
+
+    if (countError) {
+      console.error('Error fetching subscriber count:', countError);
+    }
+
     if (profileData && profileData.influencer_profiles) {
       const influencerProfile = Array.isArray(profileData.influencer_profiles) ? profileData.influencer_profiles[0] : profileData.influencer_profiles;
       setInfluencer({
@@ -109,7 +118,7 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
         instagram: influencerProfile?.instagram || null,
         twitter: influencerProfile?.twitter || null,
         tiktok: influencerProfile?.tiktok || null,
-        total_subscribers: influencerProfile?.total_subscribers || 0,
+        total_subscribers: subscriberCountData || 0, // Use dynamic count
         is_subscribed: isSubscribed,
         subscription_expires: subscriptionExpires,
       });
@@ -126,6 +135,7 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
         total_views:content_views(count)
       `)
       .eq('influencer_id', influencerId)
+      .eq('status', 'approved') // Only show approved content
       .order('created_at', { ascending: false });
 
     if (data) {
@@ -179,18 +189,50 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
   const handleStartConversation = async () => {
     if (!currentUser || !influencer) return;
 
-    const { data: existingMessage } = await supabase
-      .from('messages')
+    // Check if a conversation already exists between these two users
+    const { data: existingConversation, error: convError } = await supabase
+      .from('conversations')
       .select('id')
-      .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${influencer.profile.id}),and(sender_id.eq.${influencer.profile.id},receiver_id.eq.${currentUser.id})`)
+      .or(`and(participant1_id.eq.${currentUser.id},participant2_id.eq.${influencer.profile.id}),and(participant1_id.eq.${influencer.profile.id},participant2_id.eq.${currentUser.id})`)
       .maybeSingle();
 
-    if (!existingMessage) {
-      await supabase.from('messages').insert({
-        sender_id: currentUser.id,
-        receiver_id: influencer.profile.id,
-        content: 'Olá! Gostaria de conversar com você.',
-      });
+    if (convError) {
+      console.error('Error checking existing conversation:', convError);
+      return;
+    }
+
+    let conversationId;
+    if (existingConversation) {
+      conversationId = existingConversation.id;
+    } else {
+      // Create a new conversation
+      const { data: newConversation, error: createConvError } = await supabase
+        .from('conversations')
+        .insert({
+          participant1_id: currentUser.id,
+          participant2_id: influencer.profile.id,
+        })
+        .select('id')
+        .single();
+
+      if (createConvError) {
+        console.error('Error creating new conversation:', createConvError);
+        return;
+      }
+      conversationId = newConversation.id;
+    }
+
+    // Insert the initial message
+    const { error: messageError } = await supabase.from('messages').insert({
+      conversation_id: conversationId,
+      sender_id: currentUser.id,
+      receiver_id: influencer.profile.id, // Explicitly set receiver_id
+      content: 'Olá! Gostaria de conversar com você.',
+    });
+
+    if (messageError) {
+      console.error('Error sending initial message:', messageError);
+      return;
     }
 
     window.location.hash = 'messages';

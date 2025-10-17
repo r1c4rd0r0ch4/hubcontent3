@@ -2,13 +2,14 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Database } from '../../lib/database.types';
-import { Sparkles, Upload, DollarSign, Users, Eye, Heart, Loader2, XCircle, Settings, User, Video, FileText, Instagram, Twitter, Link } from 'lucide-react'; // Adicionado Instagram, Twitter, Link
+import { Sparkles, Upload, DollarSign, Users, Eye, Heart, Loader2, XCircle, Settings, User, Video, FileText, Instagram, Twitter, Link, MessageSquare } from 'lucide-react'; // Adicionado Instagram, Twitter, Link, MessageSquare
 import { ProfileEditModal } from './ProfileEditModal';
 import { KycSubmissionSection } from './KycSubmissionSection';
 import { ContentManager } from './ContentManager';
 import { StreamingSettings } from './StreamingSettings';
 import { EarningsOverview } from './EarningsOverview';
 import { StreamingBookings } from './StreamingBookings';
+import { Messages } from '../Shared/Messages'; // Import Messages component
 
 type Content = Database['public']['Tables']['content']['Row'];
 type Subscription = Database['public']['Tables']['subscriptions']['Row'];
@@ -24,7 +25,7 @@ export function InfluencerDashboard() {
   const [loadingInfluencerProfile, setLoadingInfluencerProfile] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'streaming-settings' | 'streaming-bookings' | 'earnings' | 'kyc'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'streaming-settings' | 'streaming-bookings' | 'earnings' | 'kyc' | 'messages'>('dashboard'); // Add 'messages' tab
 
   const fetchInfluencerData = useCallback(async () => {
     if (!profile) {
@@ -69,6 +70,7 @@ export function InfluencerDashboard() {
         .from('content')
         .select('*')
         .eq('influencer_id', influencerId)
+        .eq('status', 'approved') // Only show approved content
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -311,8 +313,8 @@ export function InfluencerDashboard() {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-text">R$ {(sub.price_paid || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      <td className="py-3 px-4 text-text">{new Date(sub.start_date).toLocaleDateString()}</td>
-                      <td className="py-3 px-4 text-text">{sub.end_date ? new Date(sub.end_date).toLocaleDateString() : 'N/A'}</td>
+                      <td className="py-3 px-4 text-text">{new Date(sub.created_at).toLocaleDateString()}</td> {/* Changed to created_at for start date */}
+                      <td className="py-3 px-4 text-text">{sub.expires_at ? new Date(sub.expires_at).toLocaleDateString() : 'N/A'}</td> {/* Changed to expires_at for end date */}
                     </tr>
                   ))}
                 </tbody>
@@ -333,6 +335,7 @@ export function InfluencerDashboard() {
            activeTab === 'streaming-settings' ? 'Configurações de Streaming' :
            activeTab === 'streaming-bookings' ? 'Reservas de Streaming' :
            activeTab === 'earnings' ? 'Meus Ganhos' :
+           activeTab === 'messages' ? 'Minhas Mensagens' : // New tab title
            'Meus Documentos KYC'}
         </h2>
         <div className="flex flex-wrap items-center gap-4">
@@ -396,6 +399,16 @@ export function InfluencerDashboard() {
           >
             KYC
           </button>
+          <button
+            onClick={() => setActiveTab('messages')} // New Messages tab
+            className={`px-5 py-2 rounded-lg font-semibold transition-colors ${
+              activeTab === 'messages'
+                ? 'bg-primary text-white shadow-md'
+                : 'bg-surface text-textSecondary hover:bg-border'
+            }`}
+          >
+            Mensagens
+          </button>
           {(activeTab === 'dashboard' || activeTab === 'kyc') && (
             <button
               onClick={() => setShowEditProfileModal(true)}
@@ -418,6 +431,7 @@ export function InfluencerDashboard() {
           {activeTab === 'streaming-bookings' && <StreamingBookings />}
           {activeTab === 'earnings' && <EarningsOverview />}
           {activeTab === 'kyc' && <KycSubmissionSection />}
+          {activeTab === 'messages' && <Messages />} {/* Render Messages component */}
         </>
       ) : (
         !loadingInfluencerProfile && <p className="text-textSecondary text-center py-10">Carregando perfil do influenciador...</p>

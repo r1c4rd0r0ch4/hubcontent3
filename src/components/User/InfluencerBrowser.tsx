@@ -12,13 +12,13 @@ interface InfluencerWithDetails {
   bio: string | null;
   influencer_profiles: {
     subscription_price: number;
-    total_subscribers: number;
     instagram: string | null;
     twitter: string | null;
     tiktok: string | null;
   };
   content_count: number;
   is_subscribed: boolean;
+  total_subscribers: number; // Add this
 }
 
 export function InfluencerBrowser() {
@@ -40,7 +40,6 @@ export function InfluencerBrowser() {
         *,
         influencer_profiles (
           subscription_price,
-          total_subscribers,
           instagram,
           twitter,
           tiktok
@@ -50,12 +49,13 @@ export function InfluencerBrowser() {
       .eq('is_active', true);
 
     if (!error && influencersData) {
-      const influencersWithCounts = await Promise.all(
+      const influencersWithDetails = await Promise.all(
         influencersData.map(async (inf: any) => {
-          const { count } = await supabase
+          const { count: contentCount } = await supabase
             .from('content')
             .select('id', { count: 'exact' })
-            .eq('influencer_id', inf.id);
+            .eq('influencer_id', inf.id)
+            .eq('status', 'approved'); // Only count approved content
 
           let isSubscribed = false;
           if (profile) {
@@ -70,15 +70,25 @@ export function InfluencerBrowser() {
             isSubscribed = !!subData;
           }
 
+          // Fetch dynamic subscriber count
+          const { data: subscriberCountData, error: countError } = await supabase.rpc('get_influencer_subscriber_count', {
+            p_influencer_id: inf.id,
+          });
+
+          if (countError) {
+            console.error('Error fetching subscriber count:', countError);
+          }
+
           return {
             ...inf,
-            content_count: count || 0,
+            content_count: contentCount || 0,
             is_subscribed: isSubscribed,
+            total_subscribers: subscriberCountData || 0, // Use dynamic count
           };
         })
       );
 
-      setInfluencers(influencersWithCounts);
+      setInfluencers(influencersWithDetails);
     }
     setLoading(false);
   };
@@ -168,7 +178,7 @@ export function InfluencerBrowser() {
                 <div className="flex items-center justify-between text-sm text-textSecondary mb-4">
                   <div className="flex items-center gap-1">
                     <Users className="w-4 h-4" />
-                    <span>{influencer.influencer_profiles.total_subscribers} assinantes</span>
+                    <span>{influencer.total_subscribers} assinantes</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <ImageIcon className="w-4 h-4" />
