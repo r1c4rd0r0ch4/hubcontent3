@@ -7,8 +7,8 @@ interface EmailPayload {
   to: string;
   subject: string;
   body: string; // HTML content
-  userId: string; // User ID for fetching profile details if needed
-  status: 'approved' | 'rejected'; // Status for logging/context
+  userId: string; // User ID for fetching profile details if needed (e.g., reporter or admin)
+  status: 'approved' | 'rejected' | 'new_report_admin_notification' | string; // Status for logging/context
 }
 
 serve(async (req) => {

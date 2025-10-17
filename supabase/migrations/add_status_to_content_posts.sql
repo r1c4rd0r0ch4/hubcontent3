@@ -18,6 +18,5 @@ UPDATE content_posts SET status = 'active' WHERE status IS NULL;
 
 -- If you have existing RLS policies on content_posts, you might need to review them.
 -- For example, if content should only be visible if status is 'active'.
--- Example (adjust as per your existing policies):
 -- CREATE POLICY "Content posts are viewable by everyone" ON content_posts
 -- FOR SELECT USING (status = 'active');

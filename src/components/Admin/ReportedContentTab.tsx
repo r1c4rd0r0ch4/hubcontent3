@@ -1,24 +1,17 @@
 import React from 'react';
-import { useAdminData } from '../../hooks/useAdminData';
+import { useAdminData, ReportedContentWithDetails } from '../../hooks/useAdminData'; // Importado: ReportedContentWithDetails
 import { AdminCard } from './AdminCard';
 import { supabase } from '../../lib/supabase';
 import { CheckCircle, XCircle, Loader2, Eye, Trash2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Tables } from '../../lib/database.types';
 
-// Extend the type for reported content to include joined data
-type ReportedContentWithDetails = Tables<'reported_content'> & {
-  content: Tables<'content_posts'> | null;
-  reporter: Tables<'profiles'> | null;
-  content_owner: Tables<'profiles'> | null; // The user who posted the content
-};
-
 export const ReportedContentTab: React.FC = () => {
   const { reportedContent, loading, error, refetch } = useAdminData();
   const [processingReportId, setProcessingReportId] = React.useState<string | null>(null);
 
-  // Filter for pending reports
-  const pendingReports = (reportedContent as ReportedContentWithDetails[]).filter(
+  // Filtrar por relatórios pendentes
+  const pendingReports = reportedContent.filter(
     (report) => report.status === 'pending'
   );
 
@@ -150,7 +143,7 @@ export const ReportedContentTab: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {pendingReports.map((report) => (
             <div key={report.id} className="bg-surface p-5 rounded-lg border border-border shadow-md flex flex-col">
-              <p className="text-lg font-semibold text-text mb-2">{report.content?.title || 'Conteúdo Desconhecido'}</p>
+              <p className="text-lg font-semibold text-text mb-2">{report.content_posts?.title || 'Conteúdo Desconhecido'}</p>
               <p className="text-sm text-textSecondary mb-2">
                 Reportado por: <span className="font-medium text-text">{report.reporter?.full_name || report.reporter_id}</span>
               </p>
@@ -166,17 +159,17 @@ export const ReportedContentTab: React.FC = () => {
                 Reportado em: {new Date(report.reported_at).toLocaleString()}
               </p>
 
-              {report.content && (
+              {report.content_posts && (
                 <div className="mb-4 p-3 bg-background rounded-md border border-border/70">
                   <p className="text-sm font-medium text-text mb-2">Detalhes do Conteúdo:</p>
                   <div className="flex items-center gap-3">
-                    {report.content.thumbnail_url && (
-                      <img src={report.content.thumbnail_url} alt={report.content.title || 'Thumbnail'} className="w-16 h-16 object-cover rounded-md" />
+                    {report.content_posts.thumbnail_url && (
+                      <img src={report.content_posts.thumbnail_url} alt={report.content_posts.title || 'Thumbnail'} className="w-16 h-16 object-cover rounded-md" />
                     )}
                     <div>
-                      <p className="text-sm text-text">{report.content.description?.substring(0, 50)}...</p>
+                      <p className="text-sm text-text">{report.content_posts.description?.substring(0, 50)}...</p>
                       <a
-                        href={`/content/${report.content.id}`} // Assuming a content detail page
+                        href={`/content/${report.content_posts.id}`} // Assuming a content detail page
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center text-primary hover:underline text-xs transition-colors mt-1"
@@ -186,7 +179,7 @@ export const ReportedContentTab: React.FC = () => {
                     </div>
                   </div>
                   <p className="text-xs text-textSecondary mt-2">
-                    Criador: {report.content_owner?.full_name || report.content.user_id}
+                    Criador: {report.content_owner?.full_name || report.content_posts.user_id}
                   </p>
                 </div>
               )}
@@ -196,9 +189,9 @@ export const ReportedContentTab: React.FC = () => {
                   onClick={() =>
                     handleReportStatusUpdate(
                       report.id,
-                      report.content_id,
+                      report.content_id, // Usar report.content_id diretamente
                       report.content_owner?.email || null,
-                      report.content?.title || null,
+                      report.content_posts?.title || null,
                       'approve_content',
                       'Conteúdo revisado e considerado adequado.'
                     )
@@ -213,9 +206,9 @@ export const ReportedContentTab: React.FC = () => {
                   onClick={() =>
                     handleReportStatusUpdate(
                       report.id,
-                      report.content_id,
+                      report.content_id, // Usar report.content_id diretamente
                       report.content_owner?.email || null,
-                      report.content?.title || null,
+                      report.content_posts?.title || null,
                       'reject_content',
                       'Conteúdo removido por violar as diretrizes da plataforma.'
                     )

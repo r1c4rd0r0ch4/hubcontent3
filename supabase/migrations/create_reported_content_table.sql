@@ -20,16 +20,28 @@ CREATE TABLE IF NOT EXISTS reported_content (
 ALTER TABLE reported_content ENABLE ROW LEVEL SECURITY;
 
 -- Allow authenticated users to insert reports
-CREATE POLICY "Authenticated users can report content" ON reported_content
-FOR INSERT TO authenticated WITH CHECK (auth.uid() = reporter_id);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Authenticated users can report content' AND tablename = 'reported_content') THEN
+    CREATE POLICY "Authenticated users can report content" ON reported_content
+    FOR INSERT TO authenticated WITH CHECK (auth.uid() = reporter_id);
+  END IF;
+END $$;
 
 -- Allow admins to view all reports
-CREATE POLICY "Admins can view all reported content" ON reported_content
-FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = TRUE));
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Admins can view all reported content' AND tablename = 'reported_content') THEN
+    CREATE POLICY "Admins can view all reported content" ON reported_content
+    FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = TRUE));
+  END IF;
+END $$;
 
 -- Allow admins to update reports
-CREATE POLICY "Admins can update reported content" ON reported_content
-FOR UPDATE TO authenticated USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = TRUE));
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Admins can update reported content' AND tablename = 'reported_content') THEN
+    CREATE POLICY "Admins can update reported content" ON reported_content
+    FOR UPDATE TO authenticated USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = TRUE));
+  END IF;
+END $$;
 
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_reported_content_content_id ON reported_content (content_id);
