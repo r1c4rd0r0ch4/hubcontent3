@@ -1,262 +1,189 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, AuthError } from '@supabase/supabase-js';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import type { Database } from '../lib/database.types';
-
-type Json = any;
+import { Session, User } from '@supabase/supabase-js';
+import { Database } from '../lib/database.types';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
-type AccountStatus = Database['public']['Enums']['account_status_enum'];
 
 interface AuthContextType {
+  session: Session | null;
   user: User | null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (
-    email: string,
-    password: string,
-    username: string,
-    userType: 'user' | 'influencer',
-    kycData?: {
-      fullName: string;
-      dateOfBirth: string; // YYYY-MM-DD
-      address: Json; // { street: string, city: string, state: string, zip: string, country: string }
-      documentType: string; // RG, CPF, CNH
-      documentNumber: string;
-    }
-  ) => Promise<{ error: AuthError | null; data?: { user: User } }>;
-  signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
-  signOut: () => Promise<void>;
-  updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>;
-  isAdmin: boolean;
+  signIn: (email: string, password: string) => Promise<{ user: User | null; error: Error | null }>;
+  signUp: (email: string, password: string, fullName: string, username: string) => Promise<{ user: User | null; error: Error | null }>;
+  signOut: () => Promise<{ error: Error | null }>;
   isInfluencerPendingApproval: boolean;
+  isAdmin: boolean; // Adicionado: Propriedade para indicar se o usuário é administrador
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [isInfluencerPendingApproval, setIsInfluencerPendingApproval] = useState(false);
 
-  const loadProfileData = async (userId: string) => {
-    console.log(`[AuthContext] Attempting to load profile for user ID: ${userId}`);
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+  const fetchUserProfile = useCallback(async (userId: string) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
 
-      if (error) throw error;
-      setProfile(data);
-      const userIsAdmin = data?.is_admin || false;
-      setIsAdmin(userIsAdmin);
-      setIsInfluencerPendingApproval(data?.user_type === 'influencer' && data?.account_status === 'pending');
-      console.log(`[AuthContext] User ${data?.username} (ID: ${userId}) is admin: ${userIsAdmin}`);
-      console.log('[AuthContext] Profile data loaded:', data); // Debugging: Check fetched profile data
-    } catch (error) {
-      console.error('[AuthContext] Error loading profile:', error);
+    if (error) {
+      console.error('Error fetching profile:', error);
       setProfile(null);
-      setIsAdmin(false);
       setIsInfluencerPendingApproval(false);
+      return null;
     }
-  };
+    setProfile(data);
+    setIsInfluencerPendingApproval(data.is_influencer && data.account_status === 'pending');
+    return data;
+  }, []);
 
   useEffect(() => {
-    console.log('[AuthContext] useEffect triggered for AuthProvider.');
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      console.log('[AuthContext] getSession result:', session ? 'Session found' : 'No session');
-      try {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await loadProfileData(session.user.id);
-        }
-      } catch (error) {
-        console.error("[AuthContext] Error during initial session load:", error);
-      } finally {
-        setLoading(false);
-        console.log('[AuthContext] Initial loading set to false.');
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+      setUser(session?.user || null);
+      if (session?.user) {
+        await fetchUserProfile(session.user.id);
+      } else {
+        setProfile(null);
+        setIsInfluencerPendingApproval(false);
       }
-    }).catch(error => {
-      console.error('[AuthContext] Error calling getSession:', error);
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log(`[AuthContext] onAuthStateChange event: ${_event}, session: ${session ? 'found' : 'null'}`);
-      (async () => {
-        try {
-          setUser(session?.user ?? null);
-          if (session?.user) {
-            await loadProfileData(session.user.id);
-          } else {
-            setProfile(null);
-            setIsAdmin(false);
-            setIsInfluencerPendingApproval(false);
-          }
-        } catch (error) {
-          console.error("[AuthContext] Error in onAuthStateChange handler:", error);
-          setProfile(null);
-          setIsAdmin(false);
-          setIsInfluencerPendingApproval(false);
-        } finally {
-          setLoading(false);
-        }
-      })();
+    // Initial session check
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user || null);
+      if (session?.user) {
+        await fetchUserProfile(session.user.id);
+      }
+      setLoading(false);
     });
 
     return () => {
-      console.log('[AuthContext] Unsubscribing from auth state changes.');
-      subscription.unsubscribe();
+      authListener.subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchUserProfile]);
 
-  const signUp = async (
-    email: string,
-    password: string,
-    username: string,
-    userType: 'user' | 'influencer',
-    kycData?: {
-      fullName: string;
-      dateOfBirth: string;
-      address: Json;
-      documentType: string;
-      documentNumber: string;
-    }
-  ) => {
+  const logUserLogin = async (userId: string, userEmail: string) => {
     try {
-      console.log('[AuthContext] Attempting signup for:', email, username, userType);
+      const ipResponse = await fetch('https://api.ipify.org?format=json');
+      const ipData = await ipResponse.json();
+      const ipAddress = ipData.ip || 'Unknown';
+      const userAgent = navigator.userAgent;
 
-      if (!email || email.trim().length === 0) {
-        return { error: new AuthError('Email não pode ser vazio.') };
-      }
-      if (!password || password.length < 6) {
-        return { error: new AuthError('A senha deve ter no mínimo 6 caracteres.') };
-      }
-      if (!username || username.trim().length === 0) {
-        return { error: new AuthError('Nome de usuário não pode ser vazio.') };
-      }
-
-      if (userType === 'influencer' && !kycData) {
-        return { error: new AuthError('Dados KYC são obrigatórios para influenciadores.') };
-      }
-
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
+      const { error: logError } = await supabase.from('user_login_logs').insert({
+        user_id: userId,
+        email: userEmail,
+        ip_address: ipAddress,
+        user_agent: userAgent,
       });
 
-      if (error) {
-        console.error('[AuthContext] Supabase Auth signUp error:', error.message); // Log the specific error message
-        return { error };
+      if (logError) {
+        console.error('Error logging user login:', logError);
       }
-      if (!data.user) {
-        console.error('[AuthContext] Supabase Auth signUp returned no user data.');
-        return { error: new AuthError('Falha ao criar usuário.') };
-      }
-
-      console.log('[AuthContext] User created in auth.users:', data.user.id);
-
-      const profileInsert: Database['public']['Tables']['profiles']['Insert'] = {
-        id: data.user.id,
-        email: email.trim(),
-        username: username.trim(),
-        user_type: userType,
-        is_active: true,
-        account_status: userType === 'influencer' ? 'pending' : 'approved',
-      };
-
-      if (userType === 'influencer' && kycData) {
-        profileInsert.full_name = kycData.fullName;
-        profileInsert.date_of_birth = kycData.dateOfBirth;
-        profileInsert.address = kycData.address;
-        profileInsert.document_type = kycData.documentType;
-        profileInsert.document_number = kycData.documentNumber;
-      }
-
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert(profileInsert);
-
-      if (profileError) {
-        console.error('[AuthContext] Error inserting profile:', profileError);
-        // Se a criação do perfil falhar, o usuário ainda existirá em auth.users.
-        // Para uma solução completa, você precisaria de uma função Supabase para
-        // deletar o usuário de auth.users neste ponto, mas isso não é possível
-        // diretamente do cliente sem privilégios de administrador.
-        return { error: new AuthError(profileError.message) };
-      }
-
-      console.log('[AuthContext] Profile created for user:', data.user.id);
-
-      if (userType === 'influencer') {
-        const { error: influencerError } = await supabase
-          .from('influencer_profiles')
-          .insert({
-            user_id: data.user.id,
-            subscription_price: 0,
-          });
-
-        if (influencerError) {
-          console.error('[AuthContext] Error inserting influencer profile:', influencerError);
-          return { error: new AuthError(influencerError.message) };
-        }
-        console.log('[AuthContext] Influencer profile created for user:', data.user.id);
-      }
-
-      await loadProfileData(data.user.id);
-      console.log('[AuthContext] Signup successful for user:', data.user.id);
-      return { error: null, data: { user: data.user } };
-    } catch (error) {
-      console.error('[AuthContext] Unexpected error during signup:', error);
-      return { error: error as AuthError };
+    } catch (logErr) {
+      console.error('Failed to get IP or log login:', logErr);
     }
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+    setLoading(true);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+
+    if (error) {
+      console.error('Sign in error:', error);
+      return { user: null, error };
+    }
+
+    if (data.user) {
+      await logUserLogin(data.user.id, data.user.email!);
+      await fetchUserProfile(data.user.id); // Refresh profile after login
+    }
+
+    return { user: data.user, error: null };
+  };
+
+  const signUp = async (email: string, password: string, fullName: string, username: string) => {
+    setLoading(true);
+    const { data, error } = await supabase.auth.signUp({
+      email,
       password,
+      options: {
+        data: {
+          full_name: fullName,
+          username: username,
+        },
+      },
     });
-    return { error };
+    setLoading(false);
+
+    if (error) {
+      console.error('Sign up error:', error);
+      return { user: null, error };
+    }
+
+    // After successful signup, create a profile entry
+    if (data.user) {
+      const { error: profileError } = await supabase.from('profiles').insert({
+        id: data.user.id,
+        email: data.user.email!,
+        full_name: fullName,
+        username: username,
+        is_admin: false, // Default to not admin
+        is_influencer: false, // Default to not influencer
+        account_status: 'active', // Default status
+      });
+
+      if (profileError) {
+        console.error('Error creating profile:', profileError);
+        // Consider rolling back auth.signUp or handling this more gracefully
+        return { user: null, error: profileError };
+      }
+
+      await logUserLogin(data.user.id, data.user.email!); // Log the successful signup (first login)
+      await fetchUserProfile(data.user.id); // Refresh profile after signup
+    }
+
+    return { user: data.user, error: null };
   };
 
   const signOut = async () => {
-    console.log('[AuthContext] Signing out...');
-    await supabase.auth.signOut();
-    setProfile(null);
-    setIsAdmin(false);
-    setIsInfluencerPendingApproval(false);
-    console.log('[AuthContext] Signed out successfully.');
+    setLoading(true);
+    const { error } = await supabase.auth.signOut();
+    setLoading(false);
+    if (!error) {
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setIsInfluencerPendingApproval(false);
+    }
+    return { error };
   };
 
-  const updateProfile = async (updates: Partial<Profile>) => {
-    if (!user) return { error: new Error('No user logged in') };
-
-    try {
-      console.log('[AuthContext] Updating profile for user:', user.id, updates);
-      const { error } = await supabase
-        .from('profiles')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', user.id);
-
-      if (error) throw error;
-
-      await loadProfileData(user.id); // This should refetch and update the context
-      console.log('[AuthContext] Profile updated successfully.');
-      return { error: null };
-    } catch (error) {
-      console.error('[AuthContext] Error updating profile:', error);
-      return { error: error as Error };
-    }
+  const value = {
+    session,
+    user,
+    profile,
+    loading,
+    signIn,
+    signUp,
+    signOut,
+    isInfluencerPendingApproval,
+    isAdmin: profile?.is_admin || false, // Expondo a propriedade is_admin do perfil
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut, updateProfile, isAdmin, isInfluencerPendingApproval }}>
-      {children}
+    <AuthContext.Provider value={value}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 }

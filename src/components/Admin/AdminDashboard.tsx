@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { UserManagementTab } from './UserManagementTab';
 import { ReportedContentTab } from './ReportedContentTab';
-import { PlatformSettingsTab } from './PlatformSettingsTab'; // KycReviewTab import removed
+import { LogManagementTab } from './LogManagementTab';
 import { AdminLayout } from './AdminLayout';
-import { Users, Flag, Settings } from 'lucide-react'; // FileText icon removed
+import { Users, Flag, Settings, ClipboardList } from 'lucide-react';
 
 export function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('userManagement');
@@ -11,8 +11,8 @@ export function AdminDashboard() {
   const tabs = [
     { id: 'userManagement', label: 'Gerenciar Usuários', icon: Users, component: <UserManagementTab /> },
     { id: 'reportedContent', label: 'Moderação de Conteúdo', icon: Flag, component: <ReportedContentTab /> },
-    // { id: 'kycReview', label: 'Revisão de KYC', icon: FileText, component: <KycReviewTab /> }, // KycReviewTab entry removed
-    { id: 'platformSettings', label: 'Configurações da Plataforma', icon: Settings, component: <PlatformSettingsTab /> },
+    { id: 'logManagement', label: 'Gerenciar Logs', icon: ClipboardList, component: <LogManagementTab /> },
+    { id: 'platformSettings', label: 'Configurações da Plataforma', icon: Settings, component: null },
   ];
 
   const currentTabComponent = tabs.find(tab => tab.id === activeTab)?.component;

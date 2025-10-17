@@ -2,14 +2,14 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Database } from '../../lib/database.types';
-import { Sparkles, Upload, DollarSign, Users, Eye, Heart, Loader2, XCircle, Settings, User, Video, FileText, Instagram, Twitter, Link, MessageSquare } from 'lucide-react'; // Adicionado Instagram, Twitter, Link, MessageSquare
+import { Sparkles, Upload, DollarSign, Users, Eye, Heart, Loader2, XCircle, Settings, User, Video, FileText, Instagram, Twitter, Link, MessageSquare, LayoutDashboard, Calendar, ShieldCheck } from 'lucide-react';
 import { ProfileEditModal } from './ProfileEditModal';
 import { KycSubmissionSection } from './KycSubmissionSection';
 import { ContentManager } from './ContentManager';
 import { StreamingSettings } from './StreamingSettings';
 import { EarningsOverview } from './EarningsOverview';
 import { StreamingBookings } from './StreamingBookings';
-import { Messages } from '../Shared/Messages'; // Import Messages component
+import { Messages } from '../Shared/Messages';
 
 type Content = Database['public']['Tables']['content']['Row'];
 type Subscription = Database['public']['Tables']['subscriptions']['Row'];
@@ -22,10 +22,10 @@ export function InfluencerDashboard() {
   const [influencerProfileData, setInfluencerProfileData] = useState<InfluencerProfile | null>(null);
   const [loadingContent, setLoadingContent] = useState(true);
   const [loadingSubscriptions, setLoadingSubscriptions] = useState(true);
-  const [loadingInfluencerProfile, setLoadingInfluencerProfile] = useState(true);
+  const [loadingInfluencerProfile, setLoadingInfluencerProfile] = useState(true); {/* CORRIGIDO AQUI */}
   const [error, setError] = useState<string | null>(null);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'streaming-settings' | 'streaming-bookings' | 'earnings' | 'kyc' | 'messages'>('dashboard'); // Add 'messages' tab
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'streaming-settings' | 'streaming-bookings' | 'earnings' | 'kyc' | 'messages'>('dashboard');
 
   const fetchInfluencerData = useCallback(async () => {
     if (!profile) {
@@ -70,7 +70,7 @@ export function InfluencerDashboard() {
         .from('content')
         .select('*')
         .eq('influencer_id', influencerId)
-        .eq('status', 'approved') // Only show approved content
+        .eq('status', 'approved')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -313,8 +313,8 @@ export function InfluencerDashboard() {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-text">R$ {(sub.price_paid || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      <td className="py-3 px-4 text-text">{new Date(sub.created_at).toLocaleDateString()}</td> {/* Changed to created_at for start date */}
-                      <td className="py-3 px-4 text-text">{sub.expires_at ? new Date(sub.expires_at).toLocaleDateString() : 'N/A'}</td> {/* Changed to expires_at for end date */}
+                      <td className="py-3 px-4 text-text">{new Date(sub.created_at).toLocaleDateString()}</td>
+                      <td className="py-3 px-4 text-text">{sub.expires_at ? new Date(sub.expires_at).toLocaleDateString() : 'N/A'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -335,79 +335,79 @@ export function InfluencerDashboard() {
            activeTab === 'streaming-settings' ? 'Configurações de Streaming' :
            activeTab === 'streaming-bookings' ? 'Reservas de Streaming' :
            activeTab === 'earnings' ? 'Meus Ganhos' :
-           activeTab === 'messages' ? 'Minhas Mensagens' : // New tab title
+           activeTab === 'messages' ? 'Minhas Mensagens' :
            'Meus Documentos KYC'}
         </h2>
         <div className="flex flex-wrap items-center gap-4">
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`px-5 py-2 rounded-lg font-semibold transition-colors ${
+            className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'dashboard'
                 ? 'bg-primary text-white shadow-md'
                 : 'bg-surface text-textSecondary hover:bg-border'
             }`}
           >
-            Painel
+            <LayoutDashboard className="w-5 h-5" /> Painel
           </button>
           <button
             onClick={() => setActiveTab('content')}
-            className={`px-5 py-2 rounded-lg font-semibold transition-colors ${
+            className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'content'
                 ? 'bg-primary text-white shadow-md'
                 : 'bg-surface text-textSecondary hover:bg-border'
             }`}
           >
-            Conteúdo
+            <FileText className="w-5 h-5" /> Conteúdo
           </button>
           <button
             onClick={() => setActiveTab('streaming-settings')}
-            className={`px-5 py-2 rounded-lg font-semibold transition-colors ${
+            className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'streaming-settings'
                 ? 'bg-primary text-white shadow-md'
                 : 'bg-surface text-textSecondary hover:bg-border'
             }`}
           >
-            Config. Streaming
+            <Video className="w-5 h-5" /> Config. Streaming
           </button>
           <button
             onClick={() => setActiveTab('streaming-bookings')}
-            className={`px-5 py-2 rounded-lg font-semibold transition-colors ${
+            className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'streaming-bookings'
                 ? 'bg-primary text-white shadow-md'
                 : 'bg-surface text-textSecondary hover:bg-border'
             }`}
           >
-            Reservas Streaming
+            <Calendar className="w-5 h-5" /> Reservas Streaming
           </button>
           <button
             onClick={() => setActiveTab('earnings')}
-            className={`px-5 py-2 rounded-lg font-semibold transition-colors ${
+            className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'earnings'
                 ? 'bg-primary text-white shadow-md'
                 : 'bg-surface text-textSecondary hover:bg-border'
             }`}
           >
-            Ganhos
+            <DollarSign className="w-5 h-5" /> Ganhos
           </button>
           <button
             onClick={() => setActiveTab('kyc')}
-            className={`px-5 py-2 rounded-lg font-semibold transition-colors ${
+            className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'kyc'
                 ? 'bg-primary text-white shadow-md'
                 : 'bg-surface text-textSecondary hover:bg-border'
             }`}
           >
-            KYC
+            <ShieldCheck className="w-5 h-5" /> KYC
           </button>
           <button
-            onClick={() => setActiveTab('messages')} // New Messages tab
-            className={`px-5 py-2 rounded-lg font-semibold transition-colors ${
+            onClick={() => setActiveTab('messages')}
+            className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'messages'
                 ? 'bg-primary text-white shadow-md'
                 : 'bg-surface text-textSecondary hover:bg-border'
             }`}
           >
-            Mensagens
+            <MessageSquare className="w-5 h-5" /> Mensagens
           </button>
           {(activeTab === 'dashboard' || activeTab === 'kyc') && (
             <button
@@ -431,7 +431,7 @@ export function InfluencerDashboard() {
           {activeTab === 'streaming-bookings' && <StreamingBookings />}
           {activeTab === 'earnings' && <EarningsOverview />}
           {activeTab === 'kyc' && <KycSubmissionSection />}
-          {activeTab === 'messages' && <Messages />} {/* Render Messages component */}
+          {activeTab === 'messages' && <Messages />}
         </>
       ) : (
         !loadingInfluencerProfile && <p className="text-textSecondary text-center py-10">Carregando perfil do influenciador...</p>

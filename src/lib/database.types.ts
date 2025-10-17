@@ -142,7 +142,7 @@ export type Database = {
           file_path: string
           file_url: string
           id: string
-          rejection_reason: string | null // NEW
+          rejection_reason: string | null
           status: string
           uploaded_at: string
           updated_at: string | null
@@ -153,7 +153,7 @@ export type Database = {
           file_path: string
           file_url: string
           id?: string
-          rejection_reason?: string | null // NEW
+          rejection_reason?: string | null
           status?: string
           uploaded_at?: string
           updated_at?: string | null
@@ -164,7 +164,7 @@ export type Database = {
           file_path?: string
           file_url?: string
           id?: string
-          rejection_reason?: string | null // NEW
+          rejection_reason?: string | null
           status?: string
           uploaded_at?: string
           updated_at?: string | null
@@ -193,6 +193,7 @@ export type Database = {
           is_admin: boolean
           is_influencer: boolean
           updated_at: string | null
+          username: string | null
         }
         Insert: {
           account_status?: string
@@ -206,6 +207,7 @@ export type Database = {
           is_admin?: boolean
           is_influencer?: boolean
           updated_at?: string | null
+          username?: string | null
         }
         Update: {
           account_status?: string
@@ -219,6 +221,7 @@ export type Database = {
           is_admin?: boolean
           is_influencer?: boolean
           updated_at?: string | null
+          username?: string | null
         }
         Relationships: [
           {
@@ -272,6 +275,41 @@ export type Database = {
           {
             foreignKeyName: "subscriptions_subscriber_id_fkey"
             columns: ["subscriber_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_login_logs: {
+        Row: {
+          id: string
+          user_id: string
+          email: string
+          logged_in_at: string
+          ip_address: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          email: string
+          logged_in_at?: string
+          ip_address?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          email?: string
+          logged_in_at?: string
+          ip_address?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_user"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
