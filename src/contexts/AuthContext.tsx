@@ -14,7 +14,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName: string, username: string) => Promise<{ user: User | null; error: Error | null }>;
   signOut: () => Promise<{ error: Error | null }>;
   isInfluencerPendingApproval: boolean;
-  isAdmin: boolean; // Adicionado: Propriedade para indicar se o usuário é administrador
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,6 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isInfluencerPendingApproval, setIsInfluencerPendingApproval] = useState(false);
 
   const fetchUserProfile = useCallback(async (userId: string) => {
+    console.log('[AuthContext] Fetching profile for user:', userId);
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -34,18 +35,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .single();
 
     if (error) {
-      console.error('Error fetching profile:', error);
+      console.error('[AuthContext] Error fetching profile:', error);
       setProfile(null);
       setIsInfluencerPendingApproval(false);
       return null;
     }
+    console.log('[AuthContext] Profile fetched successfully:', data);
     setProfile(data);
     setIsInfluencerPendingApproval(data.is_influencer && data.account_status === 'pending');
     return data;
   }, []);
 
   useEffect(() => {
+    console.log('[AuthContext] useEffect: Initializing auth listener and session check.');
     const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      console.log(`[AuthContext] onAuthStateChange event: ${_event}, Session: ${session ? 'present' : 'null'}`);
       setSession(session);
       setUser(session?.user || null);
       if (session?.user) {
@@ -55,19 +59,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsInfluencerPendingApproval(false);
       }
       setLoading(false);
+      console.log('[AuthContext] onAuthStateChange: Loading set to false.');
     });
 
     // Initial session check
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      console.log(`[AuthContext] getSession result: ${session ? 'present' : 'null'}`);
       setSession(session);
       setUser(session?.user || null);
       if (session?.user) {
         await fetchUserProfile(session.user.id);
       }
       setLoading(false);
+      console.log('[AuthContext] getSession: Loading set to false.');
+    }).catch(error => {
+      console.error('[AuthContext] Error during initial getSession:', error);
+      setLoading(false); // Ensure loading is set to false even on error
     });
 
     return () => {
+      console.log('[AuthContext] Unsubscribing auth listener.');
       authListener.subscription.unsubscribe();
     };
   }, [fetchUserProfile]);
@@ -87,24 +98,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (logError) {
-        console.error('Error logging user login:', logError);
+        console.error('[AuthContext] Error logging user login:', logError);
+      } else {
+        console.log('[AuthContext] User login logged successfully.');
       }
     } catch (logErr) {
-      console.error('Failed to get IP or log login:', logErr);
+      console.error('[AuthContext] Failed to get IP or log login:', logErr);
     }
   };
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
+    console.log('[AuthContext] Attempting sign in...');
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
 
     if (error) {
-      console.error('Sign in error:', error);
+      console.error('[AuthContext] Sign in error:', error);
       return { user: null, error };
     }
 
     if (data.user) {
+      console.log('[AuthContext] User signed in:', data.user.id);
       await logUserLogin(data.user.id, data.user.email!);
       await fetchUserProfile(data.user.id); // Refresh profile after login
     }
@@ -114,6 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, fullName: string, username: string) => {
     setLoading(true);
+    console.log('[AuthContext] Attempting sign up...');
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -127,30 +143,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
 
     if (error) {
-      console.error('Sign up error:', error);
+      console.error('[AuthContext] Sign up error:', error);
       return { user: null, error };
     }
 
-    // After successful signup, create a profile entry
     if (data.user) {
+      console.log('[AuthContext] User signed up:', data.user.id);
       const { error: profileError } = await supabase.from('profiles').insert({
         id: data.user.id,
         email: data.user.email!,
         full_name: fullName,
         username: username,
-        is_admin: false, // Default to not admin
-        is_influencer: false, // Default to not influencer
-        account_status: 'active', // Default status
+        is_admin: false,
+        is_influencer: false,
+        account_status: 'active',
       });
 
       if (profileError) {
-        console.error('Error creating profile:', profileError);
-        // Consider rolling back auth.signUp or handling this more gracefully
+        console.error('[AuthContext] Error creating profile after signup:', profileError);
         return { user: null, error: profileError };
       }
-
-      await logUserLogin(data.user.id, data.user.email!); // Log the successful signup (first login)
-      await fetchUserProfile(data.user.id); // Refresh profile after signup
+      console.log('[AuthContext] Profile created after signup.');
+      await logUserLogin(data.user.id, data.user.email!);
+      await fetchUserProfile(data.user.id);
     }
 
     return { user: data.user, error: null };
@@ -158,13 +173,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     setLoading(true);
+    console.log('[AuthContext] Attempting sign out...');
     const { error } = await supabase.auth.signOut();
     setLoading(false);
     if (!error) {
+      console.log('[AuthContext] User signed out.');
       setSession(null);
       setUser(null);
       setProfile(null);
       setIsInfluencerPendingApproval(false);
+    } else {
+      console.error('[AuthContext] Sign out error:', error);
     }
     return { error };
   };
@@ -178,8 +197,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUp,
     signOut,
     isInfluencerPendingApproval,
-    isAdmin: profile?.is_admin || false, // Expondo a propriedade is_admin do perfil
+    isAdmin: profile?.is_admin || false,
   };
+
+  console.log('[AuthContext] Provider rendering. Current states: Loading:', loading, 'User:', !!user, 'Profile:', !!profile);
 
   return (
     <AuthContext.Provider value={value}>

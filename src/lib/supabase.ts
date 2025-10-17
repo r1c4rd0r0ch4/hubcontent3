@@ -4,8 +4,8 @@ import type { Database } from './database.types';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
 
-console.log('[supabase.ts] VITE_SUPABASE_URL:', supabaseUrl ? 'Loaded' : 'Missing');
-console.log('[supabase.ts] VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Loaded' : 'Missing');
+console.log('[supabase.ts] VITE_SUPABASE_URL:', supabaseUrl ? `Loaded (length: ${supabaseUrl.length})` : 'Missing');
+console.log('[supabase.ts] VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? `Loaded (length: ${supabaseAnonKey.length})` : 'Missing');
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('[supabase.ts] CRITICAL ERROR: Missing Supabase environment variables.');

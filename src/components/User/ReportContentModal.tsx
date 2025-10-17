@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { X, Flag, Send } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { toast } from 'react-hot-toast';
 
 interface ReportContentModalProps {
   contentId: string;
   onClose: () => void;
-  onSubmit: (contentId: string, reason: string, details: string) => void;
+  // onSubmit: (contentId: string, reason: string, details: string) => void; // No longer needed as prop
 }
 
-export function ReportContentModal({ contentId, onClose, onSubmit }: ReportContentModalProps) {
+export function ReportContentModal({ contentId, onClose }: ReportContentModalProps) {
   const [reason, setReason] = useState('');
   const [details, setDetails] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,6 +20,15 @@ export function ReportContentModal({ contentId, onClose, onSubmit }: ReportConte
     setLoading(true);
     setError(null);
 
+    const user = await supabase.auth.getUser();
+    const reporterId = user.data.user?.id;
+
+    if (!reporterId) {
+      setError('Você precisa estar logado para denunciar conteúdo.');
+      setLoading(false);
+      return;
+    }
+
     if (!reason) {
       setError('Por favor, selecione um motivo para a denúncia.');
       setLoading(false);
@@ -25,8 +36,76 @@ export function ReportContentModal({ contentId, onClose, onSubmit }: ReportConte
     }
 
     try {
-      await onSubmit(contentId, reason, details);
+      // 1. Insert report into reported_content table
+      const { error: insertError } = await supabase
+        .from('reported_content')
+        .insert({
+          content_id: contentId,
+          reporter_id: reporterId,
+          reason: reason,
+          details: details,
+          status: 'pending',
+        });
+
+      if (insertError) throw insertError;
+
+      // 2. Update content_posts status to 'pending_review'
+      const { error: updateContentError } = await supabase
+        .from('content_posts')
+        .update({ status: 'pending_review', updated_at: new Date().toISOString() })
+        .eq('id', contentId);
+
+      if (updateContentError) throw updateContentError;
+
+      // 3. Fetch admin emails to send notification
+      const { data: admins, error: adminError } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('is_admin', true);
+
+      if (adminError) {
+        console.error('Failed to fetch admin emails:', adminError);
+        // Continue without sending email if admin emails cannot be fetched
+      }
+
+      if (admins && admins.length > 0) {
+        const adminEmails = admins.map(admin => admin.email);
+        const adminSubject = 'Nova Denúncia de Conteúdo Pendente de Revisão';
+        const adminBody = `
+          <p>Olá Administrador,</p>
+          <p>Um novo conteúdo foi denunciado na plataforma e está aguardando sua revisão.</p>
+          <p><strong>ID do Conteúdo:</strong> ${contentId}</p>
+          <p><strong>Motivo da Denúncia:</strong> ${reason}</p>
+          <p><strong>Detalhes:</strong> ${details || 'Nenhum detalhe adicional fornecido.'}</p>
+          <p>Por favor, acesse o painel de administração para revisar a denúncia e tomar as ações necessárias.</p>
+          <p>Obrigado,<br/>Sua Equipe de Moderação</p>
+        `;
+
+        // Call the Edge Function to send email to all admins
+        for (const email of adminEmails) {
+          const { error: emailError } = await supabase.functions.invoke('send-email', {
+            body: JSON.stringify({
+              to: email,
+              subject: adminSubject,
+              body: adminBody,
+              userId: reporterId, // Pass reporterId for logging/context in edge function
+              status: 'new_report_admin_notification', // Custom status for admin notification
+            }),
+            headers: { 'Content-Type': 'application/json' },
+          });
+
+          if (emailError) {
+            console.error(`Failed to send admin notification email to ${email}:`, emailError);
+          }
+        }
+      } else {
+        console.warn('No admin emails found to send notification.');
+      }
+
+      toast.success('Conteúdo denunciado com sucesso! A equipe de moderação será notificada.');
+      onClose(); // Close modal on success
     } catch (err: any) {
+      console.error('Error submitting report:', err);
       setError('Falha ao enviar denúncia: ' + err.message);
     } finally {
       setLoading(false);

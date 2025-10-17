@@ -58,6 +58,7 @@ export type Database = {
           file_path: string
           file_url: string
           id: string
+          status: string
           thumbnail_url: string | null
           title: string
           type: string
@@ -70,6 +71,7 @@ export type Database = {
           file_path: string
           file_url: string
           id?: string
+          status?: string
           thumbnail_url?: string | null
           title: string
           type: string
@@ -82,6 +84,7 @@ export type Database = {
           file_path?: string
           file_url?: string
           id?: string
+          status?: string
           thumbnail_url?: string | null
           title?: string
           type?: string
@@ -233,6 +236,57 @@ export type Database = {
           },
         ]
       }
+      reported_content: {
+        Row: {
+          admin_notes: string | null
+          content_id: string
+          details: string | null
+          id: string
+          reason: string
+          reported_at: string
+          reporter_id: string
+          resolved_at: string | null
+          status: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          content_id: string
+          details?: string | null
+          id?: string
+          reason: string
+          reported_at?: string
+          reporter_id: string
+          resolved_at?: string | null
+          status?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          content_id?: string
+          details?: string | null
+          id?: string
+          reason?: string
+          reported_at?: string
+          reporter_id?: string
+          resolved_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reported_content_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "content_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reported_content_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           created_at: string
@@ -354,7 +408,6 @@ export type Tables<
     ? (PublicSchema["Tables"] &
         PublicSchema["Views"])[PublicTableNameOrOptions] extends {
         Row: infer R
-      }
       ? R
       : never
     : never
@@ -408,8 +461,8 @@ export type Enums<
   EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
     ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = PublicEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Enums"][EnumName]
+  : PublicTableNameOrOptions extends keyof PublicSchema["Enums"]
     ? PublicSchema["Enums"][PublicEnumNameOrOptions]
     : never

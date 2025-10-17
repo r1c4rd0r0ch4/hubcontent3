@@ -7,14 +7,17 @@ import { ProfileEditModal } from './components/Influencer/ProfileEditModal';
 import { UserProfileEditModal } from './components/User/UserProfileEditModal';
 import { LogOut, Sparkles } from 'lucide-react';
 import { AdminDashboard } from './components/Admin/AdminDashboard';
-import { Toaster } from 'react-hot-toast'; // Import Toaster
+import { Toaster } from 'react-hot-toast';
 
 function AppContent() {
-  console.log('[AppContent] Starting render...'); // Added log for debugging
-  const { user, profile, signOut, loading, isAdmin } = useAuth(); // Get isAdmin
+  console.log('[AppContent] Starting render...');
+  const { user, profile, signOut, loading, isAdmin } = useAuth();
   const [showProfileEdit, setShowProfileEdit] = useState(false);
 
+  console.log('[AppContent] Current state - Loading:', loading, 'User:', !!user, 'Profile:', !!profile, 'isAdmin:', isAdmin);
+
   if (loading) {
+    console.log('[AppContent] Rendering loading state...');
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center">
         <div className="text-white text-xl">Carregando...</div>
@@ -23,14 +26,18 @@ function AppContent() {
   }
 
   if (!user || !profile) {
+    console.log('[AppContent] Rendering LandingPage (no user or profile)...');
+    // Reativando o componente LandingPage
     return <LandingPage />;
   }
 
   // Render AdminDashboard if user is an admin
   if (isAdmin) {
+    console.log('[AppContent] Rendering AdminDashboard...');
     return <AdminDashboard />;
   }
 
+  console.log('[AppContent] Rendering main dashboard (Influencer/User)...');
   return (
     <div className="min-h-screen bg-background">
       <nav className="bg-surface border-b border-border">
@@ -129,7 +136,7 @@ function App() {
   return (
     <AuthProvider>
       <AppContent />
-      <Toaster /> {/* Add Toaster component here */}
+      <Toaster />
     </AuthProvider>
   );
 }

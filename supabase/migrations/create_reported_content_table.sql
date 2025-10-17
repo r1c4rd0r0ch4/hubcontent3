@@ -1,46 +1,36 @@
 /*
-  # Create reported_content table and RLS policies
-  This migration ensures the 'reported_content' table and its associated enum and RLS policies are correctly created.
-  This is a fix-up migration to address the issue where the table was not found in the database.
-
-  1.  **Enum**: Defines 'reported_content_status_enum' if it doesn't exist.
-  2.  **Table**: Creates 'reported_content' table if it doesn't exist, with foreign keys to 'content' and 'profiles'.
-  3.  **RLS**: Enables Row Level Security and defines policies for admins and authenticated users.
+  # Create reported_content table
+  1. New Tables: reported_content (id uuid, content_id uuid, reporter_id uuid, reason text, details text, status text, admin_notes text, reported_at timestamptz, resolved_at timestamptz)
+  2. Security: Enable RLS, add policies for authenticated users to insert reports.
+  3. Indexes: Add index on content_id and status for efficient querying.
 */
-
--- Create reported_content_status_enum if it doesn't exist
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'reported_content_status_enum') THEN
-    CREATE TYPE public.reported_content_status_enum AS ENUM ('pending', 'reviewed', 'resolved');
-  END IF;
-END $$;
-
--- Create reported_content table if it doesn't exist
-CREATE TABLE IF NOT EXISTS public.reported_content (
+CREATE TABLE IF NOT EXISTS reported_content (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  content_id uuid NOT NULL REFERENCES public.content(id) ON DELETE CASCADE,
-  reporter_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  content_id uuid NOT NULL REFERENCES content_posts(id) ON DELETE CASCADE,
+  reporter_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   reason text NOT NULL,
-  status public.reported_content_status_enum DEFAULT 'pending'::public.reported_content_status_enum,
+  details text,
+  status text DEFAULT 'pending' NOT NULL, -- 'pending', 'reviewed', 'resolved'
   admin_notes text,
-  reported_at timestamptz DEFAULT now()
+  reported_at timestamptz DEFAULT now() NOT NULL,
+  resolved_at timestamptz,
+  CONSTRAINT chk_reported_content_status CHECK (status IN ('pending', 'reviewed', 'resolved'))
 );
 
--- Enable Row Level Security for reported_content
-ALTER TABLE public.reported_content ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reported_content ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for reported_content
--- Drop existing policies before creating to prevent errors if they partially exist
-DROP POLICY IF EXISTS "Admins can manage all reported content" ON public.reported_content;
-CREATE POLICY "Admins can manage all reported content" ON public.reported_content FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+-- Allow authenticated users to insert reports
+CREATE POLICY "Authenticated users can report content" ON reported_content
+FOR INSERT TO authenticated WITH CHECK (auth.uid() = reporter_id);
 
-DROP POLICY IF EXISTS "Users can report content" ON public.reported_content;
-CREATE POLICY "Users can report content" ON public.reported_content FOR INSERT TO authenticated WITH CHECK (reporter_id = public.get_authenticated_user_id());
+-- Allow admins to view all reports
+CREATE POLICY "Admins can view all reported content" ON reported_content
+FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = TRUE));
 
-DROP POLICY IF EXISTS "Users can view their own reported content" ON public.reported_content;
-CREATE POLICY "Users can view their own reported content" ON public.reported_content FOR SELECT TO authenticated USING (reporter_id = public.get_authenticated_user_id());
+-- Allow admins to update reports
+CREATE POLICY "Admins can update reported content" ON reported_content
+FOR UPDATE TO authenticated USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = TRUE));
 
--- Add index for performance
-CREATE INDEX IF NOT EXISTS reported_content_content_id_idx ON public.reported_content (content_id);
-CREATE INDEX IF NOT EXISTS reported_content_reporter_id_idx ON public.reported_content (reporter_id);
-CREATE INDEX IF NOT EXISTS reported_content_status_idx ON public.reported_content (status);
+-- Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_reported_content_content_id ON reported_content (content_id);
+CREATE INDEX IF NOT EXISTS idx_reported_content_status ON reported_content (status);
