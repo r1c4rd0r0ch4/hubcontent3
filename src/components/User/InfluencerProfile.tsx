@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { ArrowLeft, Heart, MessageSquare, Instagram, Twitter, Play, Eye, Video, Flag, Loader2, DollarSign } from 'lucide-react';
+import { ArrowLeft, Heart, MessageSquare, Instagram, Twitter, Play, Eye, Video, Flag, Loader2, DollarSign, ImageIcon } from 'lucide-react';
 import { Lightbox } from '../Shared/Lightbox';
 import { VideoPlayer } from '../Shared/VideoPlayer'; // This component is not used, but kept for consistency
 import { StreamingBookModal } from './StreamingBookModal';
