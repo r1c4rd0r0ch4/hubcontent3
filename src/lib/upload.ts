@@ -1,423 +1,227 @@
 import { supabase } from './supabase';
 
-export interface UploadResult {
-  url: string;
-  path: string;
-}
+const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
+const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
+const MAX_DOCUMENT_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+const MAX_KYC_DOCUMENT_SIZE_BYTES = 5 * 1024 * 1024; // 5MB for KYC documents
+const MAX_AVATAR_SIZE_BYTES = 1 * 1024 * 1024; // 1MB for avatars
 
-export interface UploadError {
-  message: string;
-  code?: string;
-}
-
-const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
-const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
-const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024; // 10MB
-
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm'];
-const ALLOWED_DOCUMENT_TYPES = [
-  'application/pdf',
-  'image/jpeg', 'image/jpg', 'image/png', 'image/webp', // Allow images for KYC documents
-];
-
-export async function uploadAvatar(
-  file: File,
-  userId: string
-): Promise<{ data: UploadResult | null; error: UploadError | null }> {
-  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-    return {
-      data: null,
-      error: { message: 'Formato de imagem não suportado. Use JPEG, PNG ou WebP.' },
-    };
-  }
-
-  if (file.size > MAX_IMAGE_SIZE) {
-    return {
-      data: null,
-      error: { message: 'A imagem deve ter no máximo 2MB.' },
-    };
-  }
-
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${userId}/avatar-${Date.now()}.${fileExt}`;
-
-  const { data, error } = await supabase.storage
-    .from('avatars')
-    .upload(fileName, file, {
-      cacheControl: '3600',
-      upsert: true,
-    });
-
-  if (error) {
-    return {
-      data: null,
-      error: { message: 'Erro ao fazer upload da imagem.', code: error.message },
-    };
-  }
-
-  const { data: { publicUrl } } = supabase.storage
-    .from('avatars')
-    .getPublicUrl(fileName);
-
-  return {
-    data: {
-      url: publicUrl,
-      path: fileName,
-    },
-    error: null,
-  };
-}
-
-export async function uploadContentImage(
-  file: File,
-  userId: string
-): Promise<{ data: UploadResult | null; error: UploadError | null }> {
-  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-    return {
-      data: null,
-      error: { message: 'Formato de imagem não suportado. Use JPEG, PNG ou WebP.' },
-    };
-  }
-
-  if (file.size > MAX_IMAGE_SIZE) {
-    return {
-      data: null,
-      error: { message: 'A imagem deve ter no máximo 2MB.' },
-    };
-  }
-
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${userId}/content-${Date.now()}.${fileExt}`;
-
-  const { data, error } = await supabase.storage
-    .from('content-images')
-    .upload(fileName, file, {
-      cacheControl: '3600',
-      upsert: false,
-    });
-
-  if (error) {
-    return {
-      data: null,
-      error: { message: 'Erro ao fazer upload da imagem.', code: error.message },
-    };
-  }
-
-  const { data: { publicUrl } } = supabase.storage
-    .from('content-images')
-    .getPublicUrl(fileName);
-
-  return {
-    data: {
-      url: publicUrl,
-      path: fileName,
-    },
-    error: null,
-  };
-}
-
-export async function uploadContentVideo(
-  file: File,
-  userId: string
-): Promise<{ data: UploadResult | null; error: UploadError | null }> {
-  if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
-    return {
-      data: null,
-      error: { message: 'Formato de vídeo não suportado. Use MP4, MOV, AVI ou WebM.' },
-    };
-  }
-
-  if (file.size > MAX_VIDEO_SIZE) {
-    return {
-      data: null,
-      error: { message: 'O vídeo deve ter no máximo 50MB.' },
-    };
-  }
-
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${userId}/video-${Date.now()}.${fileExt}`;
-
-  const { data, error } = await supabase.storage
-    .from('content-videos')
-    .upload(fileName, file, {
-      cacheControl: '3600',
-      upsert: false,
-    });
-
-  if (error) {
-    return {
-      data: null,
-      error: { message: 'Erro ao fazer upload do vídeo.', code: error.message },
-    };
-  }
-
-  const { data: { publicUrl } } = supabase.storage
-    .from('content-videos')
-    .getPublicUrl(fileName);
-
-  return {
-    data: {
-      url: publicUrl,
-      path: fileName,
-    },
-    error: null,
-  };
-}
-
-export async function uploadContentDocument(
-  file: File,
-  userId: string
-): Promise<{ data: UploadResult | null; error: UploadError | null }> {
-  if (!ALLOWED_DOCUMENT_TYPES.includes(file.type)) {
-    return {
-      data: null,
-      error: { message: 'Formato de documento não suportado. Use PDF, DOCX, XLSX, TXT, ZIP, etc.' },
-    };
-  }
-
-  if (file.size > MAX_DOCUMENT_SIZE) {
-    return {
-      data: null,
-      error: { message: `O documento deve ter no máximo ${formatFileSize(MAX_DOCUMENT_SIZE)}.` },
-    };
-  }
-
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${userId}/document-${Date.now()}.${fileExt}`;
-
-  const { data, error } = await supabase.storage
-    .from('content-documents') // New bucket for documents
-    .upload(fileName, file, {
-      cacheControl: '3600',
-      upsert: false,
-    });
-
-  if (error) {
-    return {
-      data: null,
-      error: { message: 'Erro ao fazer upload do documento.', code: error.message },
-    };
-  }
-
-  const { data: { publicUrl } } = supabase.storage
-    .from('content-documents')
-    .getPublicUrl(fileName);
-
-  return {
-    data: {
-      url: publicUrl,
-      path: fileName,
-    },
-    error: null,
-  };
-}
-
-export async function uploadKycDocument(
-  file: File,
-  userId: string,
-  documentType: string // e.g., 'id_front', 'proof_of_address'
-): Promise<{ data: UploadResult | null; error: UploadError | null }> {
-  console.log(`[uploadKycDocument] Attempting to upload file: ${file.name}, type: ${file.type}, size: ${file.size}`);
-  console.log(`[uploadKycDocument] Target user_id: ${userId}, documentType: ${documentType}`);
-
-  if (!ALLOWED_DOCUMENT_TYPES.includes(file.type)) {
-    console.error(`[uploadKycDocument] Invalid file type: ${file.type}`);
-    return {
-      data: null,
-      error: { message: 'Formato de documento não suportado. Use JPEG, PNG, WebP ou PDF.' },
-    };
-  }
-
-  if (file.size > MAX_DOCUMENT_SIZE) {
-    console.error(`[uploadKycDocument] File size too large: ${file.size} bytes`);
-    return {
-      data: null,
-      error: { message: `O documento deve ter no máximo ${formatFileSize(MAX_DOCUMENT_SIZE)}.` },
-    };
-  }
-
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${userId}/${documentType}-${Date.now()}.${fileExt}`;
-  const bucketName = 'kyc-documents'; // Dedicated bucket for KYC documents
-
-  console.log(`[uploadKycDocument] Uploading to bucket: ${bucketName}, path: ${fileName}`);
-
-  const { data, error } = await supabase.storage
-    .from(bucketName)
-    .upload(fileName, file, {
-      cacheControl: '3600',
-      upsert: false,
-    });
-
-  if (error) {
-    console.error(`[uploadKycDocument] Supabase Storage upload error:`, error);
-    return {
-      data: null,
-      error: { message: 'Erro ao fazer upload do documento KYC.', code: error.message },
-    };
-  }
-
-  console.log(`[uploadKycDocument] Upload successful. Getting public URL for path: ${fileName}`);
-  const { data: { publicUrl }, error: publicUrlError } = supabase.storage
-    .from(bucketName)
-    .getPublicUrl(fileName);
-
-  if (publicUrlError) {
-    console.error(`[uploadKycDocument] Error getting public URL:`, publicUrlError);
-    return {
-      data: null,
-      error: { message: 'Erro ao obter URL pública do documento KYC.', code: publicUrlError.message },
-    };
-  }
-
-  console.log(`[uploadKycDocument] Public URL generated: ${publicUrl}`);
-  return {
-    data: {
-      url: publicUrl,
-      path: fileName,
-    },
-    error: null,
-  };
-}
-
-export async function deleteFile(bucket: 'avatars' | 'content-images' | 'content-videos' | 'content-documents' | 'kyc-documents', path: string): Promise<boolean> {
-  const { error } = await supabase.storage
-    .from(bucket)
-    .remove([path]);
-
-  return !error;
-}
-
+// Utility to format file size for display
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const dm = 2;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
-export function validateImageFile(file: File): { valid: boolean; error?: string } {
-  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-    return { valid: false, error: 'Formato de imagem não suportado. Use JPEG, PNG ou WebP.' };
+// --- File Validation Functions ---
+interface FileValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+export function validateImageFile(file: File): FileValidationResult {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    return { valid: false, error: 'Tipo de arquivo de imagem inválido. Apenas JPEG, PNG e WebP são permitidos.' };
   }
-  if (file.size > MAX_IMAGE_SIZE) {
-    return { valid: false, error: `A imagem deve ter no máximo ${formatFileSize(MAX_IMAGE_SIZE)}. Tamanho atual: ${formatFileSize(file.size)}` };
+  if (file.size > MAX_IMAGE_SIZE_BYTES) {
+    return { valid: false, error: `O tamanho da imagem excede o limite de ${formatFileSize(MAX_IMAGE_SIZE_BYTES)}.` };
   }
   return { valid: true };
 }
 
-export function validateVideoFile(file: File): { valid: boolean; error?: string } {
-  if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
-    return { valid: false, error: 'Formato de vídeo não suportado. Use MP4, MOV, AVI ou WebM.' };
+export function validateVideoFile(file: File): FileValidationResult {
+  const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo']; // MP4, WebM, MOV, AVI
+  if (!allowedTypes.includes(file.type)) {
+    return { valid: false, error: 'Tipo de arquivo de vídeo inválido. Apenas MP4, WebM, MOV e AVI são permitidos.' };
   }
-  if (file.size > MAX_VIDEO_SIZE) {
-    return { valid: false, error: `O vídeo deve ter no máximo ${formatFileSize(MAX_VIDEO_SIZE)}. Tamanho atual: ${formatFileSize(file.size)}` };
-  }
-  return { valid: true };
-}
-
-export function validateDocumentFile(file: File): { valid: boolean; error?: string } {
-  if (!ALLOWED_DOCUMENT_TYPES.includes(file.type)) {
-    return { valid: false, error: 'Formato de documento não suportado. Use PDF, DOCX, XLSX, TXT, ZIP, etc.' };
-  }
-  if (file.size > MAX_DOCUMENT_SIZE) {
-    return { valid: false, error: `O documento deve ter no máximo ${formatFileSize(MAX_DOCUMENT_SIZE)}. Tamanho atual: ${formatFileSize(file.size)}` };
+  if (file.size > MAX_VIDEO_SIZE_BYTES) {
+    return { valid: false, error: `O tamanho do vídeo excede o limite de ${formatFileSize(MAX_VIDEO_SIZE_BYTES)}.` };
   }
   return { valid: true };
 }
 
-export async function generateVideoThumbnail(
-  videoFile: File
-): Promise<{ data: Blob | null; error: string | null }> {
+export function validateDocumentFile(file: File): FileValidationResult {
+  const allowedTypes = [
+    'application/pdf',
+    'application/msword', // .doc
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    'application/vnd.ms-excel', // .xls
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/vnd.ms-powerpoint', // .ppt
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+    'text/plain',
+    'application/zip',
+    'application/x-rar-compressed',
+  ];
+  if (!allowedTypes.includes(file.type)) {
+    return { valid: false, error: 'Tipo de arquivo de documento inválido. Apenas PDF, DOCX, XLSX, TXT, ZIP, RAR são permitidos.' };
+  }
+  if (file.size > MAX_DOCUMENT_SIZE_BYTES) {
+    return { valid: false, error: `O tamanho do documento excede o limite de ${formatFileSize(MAX_DOCUMENT_SIZE_BYTES)}.` };
+  }
+  return { valid: true };
+}
+
+export function validateKycDocumentFile(file: File): FileValidationResult {
+  const allowedTypes = [
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+  ];
+  if (!allowedTypes.includes(file.type)) {
+    return { valid: false, error: 'Tipo de arquivo KYC inválido. Apenas PDF, JPEG e PNG são permitidos.' };
+  }
+  if (file.size > MAX_KYC_DOCUMENT_SIZE_BYTES) {
+    return { valid: false, error: `O tamanho do documento KYC excede o limite de ${formatFileSize(MAX_KYC_DOCUMENT_SIZE_BYTES)}.` };
+  }
+  return { valid: true };
+}
+
+export function validateAvatarFile(file: File): FileValidationResult {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    return { valid: false, error: 'Tipo de arquivo de avatar inválido. Apenas JPEG, PNG e WebP são permitidos.' };
+  }
+  if (file.size > MAX_AVATAR_SIZE_BYTES) {
+    return { valid: false, error: `O tamanho do avatar excede o limite de ${formatFileSize(MAX_AVATAR_SIZE_BYTES)}.` };
+  }
+  return { valid: true };
+}
+
+// --- Upload Functions ---
+interface UploadResult {
+  data?: { url: string; path: string };
+  error?: Error;
+}
+
+async function uploadFileToSupabase(
+  file: File,
+  userId: string,
+  bucket: string,
+  folder: string
+): Promise<UploadResult> {
+  const fileExtension = file.name.split('.').pop();
+  const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExtension}`;
+  const filePath = `${folder}/${userId}/${fileName}`;
+
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false,
+    });
+
+  if (error) {
+    console.error(`[uploadFileToSupabase] Error uploading to ${bucket}/${folder}:`, error);
+    return { error: new Error(`Falha ao fazer upload do arquivo: ${error.message}`) };
+  }
+
+  const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+
+  if (!publicUrlData || !publicUrlData.publicUrl) {
+    return { error: new Error('Não foi possível obter a URL pública do arquivo.') };
+  }
+
+  return { data: { url: publicUrlData.publicUrl, path: filePath } };
+}
+
+export async function uploadContentImage(file: File, userId: string): Promise<UploadResult> {
+  return uploadFileToSupabase(file, userId, 'content_images', 'images');
+}
+
+export async function uploadContentVideo(file: File, userId: string): Promise<UploadResult> {
+  return uploadFileToSupabase(file, userId, 'content_videos', 'videos');
+}
+
+export async function uploadContentDocument(file: File, userId: string): Promise<UploadResult> {
+  return uploadFileToSupabase(file, userId, 'content_documents', 'documents');
+}
+
+export async function uploadKycDocument(file: File, userId: string): Promise<UploadResult> {
+  return uploadFileToSupabase(file, userId, 'kyc_documents', 'documents');
+}
+
+export async function uploadAvatar(file: File, userId: string): Promise<UploadResult> {
+  return uploadFileToSupabase(file, userId, 'avatars', 'avatars');
+}
+
+// --- Video Thumbnail Generation and Upload ---
+interface ThumbnailResult {
+  data?: Blob;
+  error?: string;
+}
+
+export async function generateVideoThumbnail(videoFile: File): Promise<ThumbnailResult> {
   return new Promise((resolve) => {
-    try {
-      const video = document.createElement('video');
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(videoFile);
+    video.currentTime = 1; // Capture thumbnail at 1 second mark
 
-      if (!ctx) {
-        resolve({ data: null, error: 'Canvas não suportado' });
-        return;
-      }
-
-      video.preload = 'metadata';
-      video.muted = true;
-      video.playsInline = true;
-
-      video.onloadedmetadata = () => {
-        // Seek to 1 second or 10% of video duration, whichever is smaller
-        const seekTime = Math.min(1, video.duration * 0.1);
-        video.currentTime = seekTime;
-      };
-
-      video.onseeked = () => {
-        // Set canvas dimensions to video dimensions
+    video.onloadeddata = async () => {
+      try {
+        const canvas = document.createElement('canvas');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-
-        // Draw video frame to canvas
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve({ error: 'Não foi possível obter o contexto do canvas.' });
+          return;
+        }
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // Convert canvas to blob
-        canvas.toBlob(
-          (blob) => {
-            URL.revokeObjectURL(video.src);
-            if (blob) {
-              resolve({ data: blob, error: null });
-            } else {
-              resolve({ data: null, error: 'Erro ao gerar thumbnail' });
-            }
-          },
-          'image/jpeg',
-          0.8
-        );
-      };
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve({ data: blob });
+          } else {
+            resolve({ error: 'Falha ao gerar blob da thumbnail.' });
+          }
+          URL.revokeObjectURL(video.src);
+        }, 'image/jpeg', 0.8); // JPEG format with 80% quality
+      } catch (err) {
+        console.error('Error generating video thumbnail:', err);
+        resolve({ error: 'Erro ao gerar thumbnail do vídeo.' });
+      }
+    };
 
-      video.onerror = () => {
-        URL.revokeObjectURL(video.src);
-        resolve({ data: null, error: 'Erro ao carregar vídeo' });
-      };
-
-      // Load video
-      video.src = URL.createObjectURL(videoFile);
-    } catch (error) {
-      resolve({ data: null, error: 'Erro ao processar vídeo' });
-    }
+    video.onerror = (err) => {
+      console.error('Error loading video for thumbnail generation:', err);
+      resolve({ error: 'Erro ao carregar vídeo para gerar thumbnail.' });
+      URL.revokeObjectURL(video.src);
+    };
   });
 }
 
 export async function uploadVideoThumbnail(
   thumbnailBlob: Blob,
   userId: string,
-  videoFileName: string
-): Promise<{ data: UploadResult | null; error: UploadError | null }> {
-  const thumbnailFileName = `${userId}/thumb-${videoFileName.split('/').pop()?.replace(/\.[^.]+$/, '')}.jpg`;
+  videoFilePath: string
+): Promise<UploadResult> {
+  const videoFileName = videoFilePath.split('/').pop()?.split('.')[0];
+  const thumbnailFileName = `${videoFileName}-thumbnail.jpeg`;
+  const thumbnailPath = `thumbnails/${userId}/${thumbnailFileName}`;
 
   const { data, error } = await supabase.storage
-    .from('content-images')
-    .upload(thumbnailFileName, thumbnailBlob, {
+    .from('content_videos') // Store thumbnails in the same bucket as videos
+    .upload(thumbnailPath, thumbnailBlob, {
       cacheControl: '3600',
       upsert: false,
       contentType: 'image/jpeg',
     });
 
   if (error) {
-    return {
-      data: null,
-      error: { message: 'Erro ao fazer upload da thumbnail.', code: error.message },
-    };
+    console.error('[uploadVideoThumbnail] Error uploading thumbnail:', error);
+    return { error: new Error(`Falha ao fazer upload da thumbnail: ${error.message}`) };
   }
 
-  const { data: { publicUrl } } = supabase.storage
-    .from('content-images')
-    .getPublicUrl(thumbnailFileName);
+  const { data: publicUrlData } = supabase.storage.from('content_videos').getPublicUrl(thumbnailPath);
 
-  return {
-    data: {
-      url: publicUrl,
-      path: thumbnailFileName,
-    },
-    error: null,
-  };
+  if (!publicUrlData || !publicUrlData.publicUrl) {
+    return { error: new Error('Não foi possível obter a URL pública da thumbnail.') };
+  }
+
+  return { data: { url: publicUrlData.publicUrl, path: thumbnailPath } };
 }
