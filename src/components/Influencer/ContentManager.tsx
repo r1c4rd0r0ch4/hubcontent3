@@ -323,7 +323,7 @@ function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
       is_free: isFree,
       is_purchasable: isPurchasable,
       price: isPurchasable ? price : 0,
-      status: 'pending',
+      status: 'approved', // ALTERADO: Conteúdo agora é 'approved' por padrão
     });
 
     setLoading(false);
