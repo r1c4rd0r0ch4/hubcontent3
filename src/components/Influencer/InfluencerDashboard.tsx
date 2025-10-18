@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Database } from '../../lib/database.types';
-import { Sparkles, Upload, DollarSign, Users, Eye, Heart, Loader2, XCircle, Settings, User, Video, FileText, Instagram, Twitter, Link, MessageSquare, LayoutDashboard, Calendar, ShieldCheck } from 'lucide-react';
+import { Sparkles, Upload, DollarSign, Users, Eye, Heart, Loader2, XCircle, Settings, User, Video, FileText, Instagram, Twitter, Link, MessageSquare, LayoutDashboard, Calendar, ShieldCheck, Image as ImageIcon, TrendingUp } from 'lucide-react';
 import { ProfileEditModal } from './ProfileEditModal';
 import { KycSubmissionSection } from './KycSubmissionSection';
 import { ContentManager } from './ContentManager';
@@ -14,6 +14,9 @@ import { Messages } from '../Shared/Messages';
 type Content = Database['public']['Tables']['content_posts']['Row'];
 type Subscription = Database['public']['Tables']['subscriptions']['Row'];
 type InfluencerProfile = Database['public']['Tables']['influencer_profiles']['Row'];
+type ContentTypeFilter = 'all' | 'image' | 'video' | 'document';
+type SortBy = 'created_at' | 'views_count';
+type SortOrder = 'desc' | 'asc';
 
 export function InfluencerDashboard() {
   const { profile, isInfluencerPendingApproval } = useAuth();
@@ -27,11 +30,13 @@ export function InfluencerDashboard() {
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'streaming-settings' | 'streaming-bookings' | 'earnings' | 'kyc' | 'messages'>('dashboard');
 
-  console.log('[InfluencerDashboard] Component Rendered. Active Tab:', activeTab, 'Profile:', profile); // NOVO LOG
+  // States for content filtering on dashboard
+  const [contentTypeFilter, setContentTypeFilter] = useState<ContentTypeFilter>('all');
+  const [sortBy, setSortBy] = useState<SortBy>('created_at');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
   const fetchInfluencerData = useCallback(async () => {
     if (!profile) {
-      console.log('[InfluencerDashboard] fetchInfluencerData: No profile found, returning.');
       setLoadingContent(false);
       setLoadingSubscriptions(false);
       setLoadingInfluencerProfile(false);
@@ -39,7 +44,6 @@ export function InfluencerDashboard() {
     }
 
     setError(null);
-    console.log('[InfluencerDashboard] fetchInfluencerData: Fetching data for profile ID:', profile.id);
 
     setLoadingInfluencerProfile(true);
     const { data: influencerData, error: influencerError } = await supabase
@@ -59,33 +63,11 @@ export function InfluencerDashboard() {
 
     setInfluencerProfileData(influencerData);
     setLoadingInfluencerProfile(false);
-    console.log('[InfluencerDashboard] Influencer profile data:', influencerData);
-
 
     if (!influencerData) {
-      console.log('[InfluencerDashboard] No influencer profile data found, skipping content and subscriptions fetch.');
       setLoadingContent(false);
       setLoadingSubscriptions(false);
       return;
-    }
-
-    setLoadingContent(true);
-    try {
-      const { data, error } = await supabase
-        .from('content_posts')
-        .select('*')
-        .eq('user_id', profile.id)
-        .eq('status', 'approved') // Apenas conteúdo aprovado para o dashboard
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setContent(data || []);
-      console.log('[InfluencerDashboard] Content fetched for dashboard. Count:', data?.length, 'Data:', data);
-    } catch (err: any) {
-      console.error('[InfluencerDashboard] Error fetching content:', err.message);
-      setError('Falha ao carregar conteúdo: ' + err.message);
-    } finally {
-      setLoadingContent(false);
     }
 
     setLoadingSubscriptions(true);
@@ -98,7 +80,6 @@ export function InfluencerDashboard() {
 
       if (error) throw error;
       setSubscriptions(data || []);
-      console.log('[InfluencerDashboard] Subscriptions fetched. Count:', data?.length, 'Data:', data);
     } catch (err: any) {
       console.error('[InfluencerDashboard] Error fetching subscriptions:', err.message);
       setError('Falha ao carregar assinaturas: ' + err.message);
@@ -107,14 +88,78 @@ export function InfluencerDashboard() {
     }
   }, [profile]);
 
+  const fetchDashboardContent = useCallback(async () => {
+    if (!profile) {
+      setLoadingContent(false);
+      return;
+    }
+
+    setLoadingContent(true);
+    try {
+      let query = supabase
+        .from('content_posts')
+        .select('*')
+        .eq('user_id', profile.id)
+        .eq('status', 'approved'); // Apenas conteúdo aprovado para o dashboard
+
+      if (contentTypeFilter !== 'all') {
+        query = query.eq('type', contentTypeFilter);
+      }
+
+      if (sortBy === 'created_at') {
+        query = query.order('created_at', { ascending: sortOrder === 'asc' });
+      } else if (sortBy === 'views_count') {
+        // For views_count, we need to join or use an RPC. For simplicity, we'll sort client-side for now
+        // or fetch all and sort. A more robust solution would involve an RPC or materialized view.
+        // For now, let's fetch and sort client-side if views_count is selected.
+        // If we want true server-side sorting, we'd need an RPC like get_user_content_with_stats.
+        query = query.order('created_at', { ascending: sortOrder === 'asc' }); // Fallback to created_at for server sort
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      let sortedData = data || [];
+      if (sortBy === 'views_count') {
+        // Client-side sort for views_count if not handled by RPC
+        const { data: contentWithStats, error: statsError } = await supabase.rpc('get_user_content_with_stats', {
+          p_user_id: profile.id,
+        });
+
+        if (statsError) {
+          console.error('Error fetching content stats for sorting:', statsError);
+          // Fallback to original data if stats fail
+        } else if (contentWithStats) {
+          const statsMap = new Map(contentWithStats.map(item => [item.content_id, item.views_count]));
+          sortedData = sortedData.map(item => ({
+            ...item,
+            views_count: statsMap.get(item.id) || 0
+          }));
+          sortedData.sort((a, b) => {
+            const valA = (a as any).views_count || 0;
+            const valB = (b as any).views_count || 0;
+            return sortOrder === 'asc' ? valA - valB : valB - valA;
+          });
+        }
+      }
+
+      setContent(sortedData);
+    } catch (err: any) {
+      console.error('[InfluencerDashboard] Error fetching content:', err.message);
+      setError('Falha ao carregar conteúdo: ' + err.message);
+    } finally {
+      setLoadingContent(false);
+    }
+  }, [profile, contentTypeFilter, sortBy, sortOrder]);
+
+
   useEffect(() => {
     if (profile && profile.user_type === 'influencer') {
-      console.log('[InfluencerDashboard] useEffect: profile is influencer, calling fetchInfluencerData.');
       fetchInfluencerData();
-    } else {
-      console.log('[InfluencerDashboard] useEffect: profile is not influencer or null.');
+      fetchDashboardContent(); // Fetch content for the dashboard
     }
-  }, [profile, fetchInfluencerData]);
+  }, [profile, fetchInfluencerData, fetchDashboardContent]);
 
   const handleModalClose = () => {
     setShowEditProfileModal(false);
@@ -123,6 +168,7 @@ export function InfluencerDashboard() {
   const handleModalSuccess = () => {
     setShowEditProfileModal(false);
     fetchInfluencerData();
+    fetchDashboardContent(); // Re-fetch content after profile update
   };
 
   const totalEarnings = subscriptions.reduce((sum, sub) => sum + (sub.price_paid || 0), 0);
@@ -261,6 +307,69 @@ export function InfluencerDashboard() {
 
         <div className="mb-10">
           <h3 className="text-2xl font-bold text-text mb-6 border-b border-border pb-4">Seu Conteúdo Recente</h3>
+
+          {/* Filters and Sorting for "Seu Conteúdo Recente" */}
+          <div className="bg-surface rounded-xl p-4 mb-6 border border-border flex flex-col sm:flex-row items-center gap-4">
+            <div className="flex-1 flex flex-wrap gap-3">
+              <button
+                onClick={() => setContentTypeFilter('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  contentTypeFilter === 'all' ? 'bg-primary text-white' : 'bg-background text-textSecondary hover:bg-background/70'
+                }`}
+              >
+                Todos
+              </button>
+              <button
+                onClick={() => setContentTypeFilter('image')}
+                className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  contentTypeFilter === 'image' ? 'bg-primary text-white' : 'bg-background text-textSecondary hover:bg-background/70'
+                }`}
+              >
+                <ImageIcon className="w-4 h-4" /> Imagens
+              </button>
+              <button
+                onClick={() => setContentTypeFilter('video')}
+                className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  contentTypeFilter === 'video' ? 'bg-primary text-white' : 'bg-background text-textSecondary hover:bg-background/70'
+                }`}
+              >
+                <Video className="w-4 h-4" /> Vídeos
+              </button>
+              <button
+                onClick={() => setContentTypeFilter('document')}
+                className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  contentTypeFilter === 'document' ? 'bg-primary text-white' : 'bg-background text-textSecondary hover:bg-background/70'
+                }`}
+              >
+                <FileText className="w-4 h-4" /> Documentos
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label htmlFor="sortBy" className="text-sm text-textSecondary">Ordenar por:</label>
+              <select
+                id="sortBy"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortBy)}
+                className="bg-background border border-border text-text rounded-lg px-3 py-2 text-sm focus:ring-primary focus:border-primary"
+              >
+                <option value="created_at">Data de Postagem</option>
+                <option value="views_count">Visualizações</option>
+              </select>
+              <button
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                className="p-2 bg-background border border-border rounded-lg text-textSecondary hover:bg-background/70 transition-colors"
+                title={sortOrder === 'asc' ? 'Ordem Crescente' : 'Ordem Decrescente'}
+              >
+                {sortBy === 'created_at' ? (
+                  <Calendar className={`w-5 h-5 ${sortOrder === 'desc' ? 'rotate-180' : ''} transition-transform`} />
+                ) : (
+                  <TrendingUp className={`w-5 h-5 ${sortOrder === 'desc' ? 'rotate-180' : ''} transition-transform`} />
+                )}
+              </button>
+            </div>
+          </div>
+
           {loadingContent && (
             <div className="flex items-center justify-center text-primary text-lg">
               <Loader2 className="animate-spin mr-2" size={24} /> Carregando conteúdo...
@@ -278,8 +387,8 @@ export function InfluencerDashboard() {
                     <h4 className="text-lg font-semibold text-text mb-2">{item.title}</h4>
                     <p className="text-sm text-textSecondary mb-3 line-clamp-2">{item.description}</p>
                     <div className="flex items-center justify-between text-textSecondary text-sm">
-                      <span className="flex items-center gap-1"><Eye size={16} /> {item.views_count || 0}</span>
-                      <span className="flex items-center gap-1"><Heart size={16} /> {item.likes_count || 0}</span>
+                      <span className="flex items-center gap-1"><Eye size={16} /> {(item as any).views_count || 0}</span> {/* Cast to any to access views_count */}
+                      <span className="flex items-center gap-1"><Heart size={16} /> {0}</span> {/* Likes not directly available here, would need RPC */}
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${item.status === 'approved' ? 'bg-success/20 text-success' : item.status === 'pending' ? 'bg-warning/20 text-warning' : 'bg-error/20 text-error'}`}>
                         {item.status}
                       </span>
@@ -352,7 +461,6 @@ export function InfluencerDashboard() {
           <button
             onClick={() => {
               setActiveTab('dashboard');
-              console.log('[InfluencerDashboard] Tab changed to "dashboard".'); // NOVO LOG
             }}
             className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'dashboard'
@@ -365,7 +473,6 @@ export function InfluencerDashboard() {
           <button
             onClick={() => {
               setActiveTab('content');
-              console.log('[InfluencerDashboard] Tab changed to "content".'); // NOVO LOG
             }}
             className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'content'
@@ -378,7 +485,6 @@ export function InfluencerDashboard() {
           <button
             onClick={() => {
               setActiveTab('streaming-settings');
-              console.log('[InfluencerDashboard] Tab changed to "streaming-settings".'); // NOVO LOG
             }}
             className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'streaming-settings'
@@ -391,7 +497,6 @@ export function InfluencerDashboard() {
           <button
             onClick={() => {
               setActiveTab('streaming-bookings');
-              console.log('[InfluencerDashboard] Tab changed to "streaming-bookings".'); // NOVO LOG
             }}
             className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'streaming-bookings'
@@ -404,7 +509,6 @@ export function InfluencerDashboard() {
           <button
             onClick={() => {
               setActiveTab('earnings');
-              console.log('[InfluencerDashboard] Tab changed to "earnings".'); // NOVO LOG
             }}
             className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'earnings'
@@ -417,7 +521,6 @@ export function InfluencerDashboard() {
           <button
             onClick={() => {
               setActiveTab('kyc');
-              console.log('[InfluencerDashboard] Tab changed to "kyc".'); // NOVO LOG
             }}
             className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'kyc'
@@ -430,7 +533,6 @@ export function InfluencerDashboard() {
           <button
             onClick={() => {
               setActiveTab('messages');
-              console.log('[InfluencerDashboard] Tab changed to "messages".'); // NOVO LOG
             }}
             className={`flex items-center gap-2 px-5 py-2 rounded-lg font-semibold transition-colors ${
               activeTab === 'messages'
@@ -457,7 +559,7 @@ export function InfluencerDashboard() {
       {influencerProfileData?.user_id ? (
         <>
           {activeTab === 'dashboard' && renderDashboardTabContent()}
-          {activeTab === 'content' && <ContentManager onUpdate={fetchInfluencerData} />}
+          {activeTab === 'content' && <ContentManager onUpdate={fetchDashboardContent} />} {/* ContentManager now only manages, dashboard filters */}
           {activeTab === 'streaming-settings' && <StreamingSettings />}
           {activeTab === 'streaming-bookings' && <StreamingBookings />}
           {activeTab === 'earnings' && <EarningsOverview />}

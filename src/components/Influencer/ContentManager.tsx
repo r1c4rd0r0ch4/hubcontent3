@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import {
@@ -12,52 +12,51 @@ import {
   uploadVideoThumbnail,
   formatFileSize
 } from '../../lib/upload';
-import { Plus, Image as ImageIcon, Video, FileText, Trash2, Eye, Heart, Upload, X, DollarSign } from 'lucide-react';
+import { Plus, Image as ImageIcon, Video, FileText, Trash2, Eye, Heart, Upload, X, DollarSign, Calendar, TrendingUp } from 'lucide-react';
 import type { Database } from '../../lib/database.types';
 
-type Content = Database['public']['Tables']['content_posts']['Row'];
-type ContentType = 'image' | 'video' | 'document';
+// Type for content posts including stats from RPC
+type ContentWithStats = Database['public']['Functions']['get_user_content_with_stats']['Returns'][0];
+type ContentTypeFilter = 'all' | 'image' | 'video' | 'document';
+type SortBy = 'created_at' | 'views_count';
+type SortOrder = 'desc' | 'asc';
 
 export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
   const { profile } = useAuth();
-  console.log('[ContentManager] Component Rendered. Current profile:', profile);
-  const [contents, setContents] = useState<Content[]>([]);
+  const [contents, setContents] = useState<ContentWithStats[]>([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Removed filter and sort states from here, as they are now managed by InfluencerDashboard
 
-  useEffect(() => {
-    console.log('[ContentManager] useEffect triggered. Profile in useEffect:', profile);
-    loadContents();
-  }, [profile]);
-
-  const loadContents = async () => {
-    console.log('[ContentManager] loadContents called.');
+  const loadContents = useCallback(async () => {
     if (!profile) {
-      console.log('[ContentManager] loadContents: No profile found, returning. Profile was:', profile);
       setLoading(false);
       return;
     }
 
-    console.log('[ContentManager] loadContents: Attempting to fetch content for user_id:', profile.id);
-    const { data, error } = await supabase
-      .from('content_posts')
-      .select('*')
-      .eq('user_id', profile.id)
-      .order('created_at', { ascending: false });
+    setLoading(true);
+    const { data, error } = await supabase.rpc('get_user_content_with_stats', {
+      p_user_id: profile.id,
+    });
 
     if (error) {
       console.error('[ContentManager] loadContents: Error fetching content:', error);
       alert('Erro ao carregar conteúdo: ' + error.message);
+      setContents([]);
     } else if (data) {
-      console.log('[ContentManager] loadContents: Content fetched successfully. Count:', data.length, 'Data:', data);
-      setContents(data);
-      console.log('[ContentManager] loadContents: Contents state updated. Current contents count:', data.length);
+      // ContentManager now only displays, filtering is done by the dashboard
+      // We still sort by created_at desc for consistency in this management view
+      const sortedData = data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setContents(sortedData);
     } else {
-      console.log('[ContentManager] loadContents: No data or error returned, data is null/undefined.');
       setContents([]);
     }
     setLoading(false);
-  };
+  }, [profile]);
+
+  useEffect(() => {
+    loadContents();
+  }, [loadContents]);
 
   const deleteContent = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este conteúdo?')) return;
@@ -69,7 +68,7 @@ export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
 
     if (!error) {
       loadContents();
-      onUpdate();
+      onUpdate(); // Notify dashboard to re-fetch its content
     } else {
       console.error('[ContentManager] deleteContent: Error deleting content:', error);
       alert('Erro ao excluir conteúdo: ' + error.message);
@@ -77,14 +76,12 @@ export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
   };
 
   if (loading) {
-    console.log('[ContentManager] Rendering loading state...'); // NOVO LOG
     return <div className="text-center py-12 text-text">Carregando...</div>;
   }
 
-  console.log('[ContentManager] Rendering content list/empty state. Contents count:', contents.length); // NOVO LOG
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
         <h2 className="text-2xl font-bold text-text">Meu Conteúdo</h2>
         <button
           onClick={() => setShowUploadModal(true)}
@@ -94,6 +91,8 @@ export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
           Upload Novo Conteúdo
         </button>
       </div>
+
+      {/* Filters and Sorting removed from here */}
 
       {contents.length === 0 ? (
         <div className="text-center py-12 bg-surface rounded-xl border border-border">
@@ -110,7 +109,7 @@ export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {contents.map((content) => (
-            <div key={content.id} className="bg-surface rounded-xl shadow-lg border border-border overflow-hidden hover:shadow-xl transition-shadow">
+            <div key={content.content_id} className="bg-surface rounded-xl shadow-lg border border-border overflow-hidden hover:shadow-xl transition-shadow">
               <div className="relative aspect-video bg-background flex items-center justify-center">
                 {content.type === 'video' ? (
                   <video
@@ -180,7 +179,7 @@ export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
                   <span className="text-xs">{new Date(content.created_at).toLocaleDateString('pt-BR')}</span>
                 </div>
                 <button
-                  onClick={() => deleteContent(content.id)}
+                  onClick={() => deleteContent(content.content_id)}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-error/10 text-error rounded-lg hover:bg-error/20 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -197,7 +196,7 @@ export function ContentManager({ onUpdate }: { onUpdate: () => void }) {
           onClose={() => setShowUploadModal(false)}
           onSuccess={() => {
             loadContents();
-            onUpdate();
+            onUpdate(); // Notify dashboard to re-fetch its content
             setShowUploadModal(false);
           }}
         />
@@ -210,7 +209,7 @@ function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
   const { profile } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [contentType, setContentType] = useState<ContentType>('image');
+  const [contentType, setContentType] = useState<ContentTypeFilter>('image');
   const [fileUrl, setFileUrl] = useState('');
   const [filePath, setFilePath] = useState('');
   const [thumbnailUrl, setThumbnailUrl] = useState('');
@@ -323,7 +322,7 @@ function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
       is_free: isFree,
       is_purchasable: isPurchasable,
       price: isPurchasable ? price : 0,
-      status: 'approved', // ALTERADO: Conteúdo agora é 'approved' por padrão
+      status: 'approved',
     });
 
     setLoading(false);
@@ -537,7 +536,7 @@ function UploadModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
                   min="0.01"
                   step="0.01"
                   required={isPurchasable}
-                  className="w-full px-4 py-2 border border-border bg-background text-text rounded-lg focus:ring-2 focus://ring-secondary focus:border-transparent"
+                  className="w-full px-4 py-2 border border-border bg-background text-text rounded-lg focus:ring-2 focus:ring-secondary focus:border-transparent"
                   placeholder="0.00"
                 />
               </div>

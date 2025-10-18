@@ -18,7 +18,7 @@ interface InfluencerWithDetails {
   };
   content_count: number;
   is_subscribed: boolean;
-  total_subscribers: number; // Add this
+  total_subscribers: number;
 }
 
 export function InfluencerBrowser() {
@@ -34,10 +34,14 @@ export function InfluencerBrowser() {
 
   const loadInfluencers = async () => {
     setLoading(true);
-    const { data: influencersData, error } = await supabase
+    const { data: profilesData, error } = await supabase
       .from('profiles')
       .select(`
-        *,
+        id,
+        username,
+        full_name,
+        avatar_url,
+        bio,
         influencer_profiles (
           subscription_price,
           instagram,
@@ -46,15 +50,16 @@ export function InfluencerBrowser() {
         )
       `)
       .eq('user_type', 'influencer')
+      .eq('account_status', 'approved') // Only fetch approved influencers
       .eq('is_active', true);
 
-    if (!error && influencersData) {
+    if (!error && profilesData) {
       const influencersWithDetails = await Promise.all(
-        influencersData.map(async (inf: any) => {
+        profilesData.map(async (inf: any) => {
           const { count: contentCount } = await supabase
-            .from('content')
+            .from('content_posts') // Changed from 'content' to 'content_posts'
             .select('id', { count: 'exact' })
-            .eq('influencer_id', inf.id)
+            .eq('user_id', inf.id) // Changed from 'influencer_id' to 'user_id'
             .eq('status', 'approved'); // Only count approved content
 
           let isSubscribed = false;
@@ -89,6 +94,8 @@ export function InfluencerBrowser() {
       );
 
       setInfluencers(influencersWithDetails);
+    } else if (error) {
+      console.error('Error loading influencers:', error.message);
     }
     setLoading(false);
   };

@@ -1,29 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { ArrowLeft, Heart, MessageSquare, Instagram, Twitter, Play, Eye, Video, Flag, Loader2 } from 'lucide-react';
+import { ArrowLeft, Heart, MessageSquare, Instagram, Twitter, Play, Eye, Video, Flag, Loader2, DollarSign } from 'lucide-react';
 import { Lightbox } from '../Shared/Lightbox';
 import { VideoPlayer } from '../Shared/VideoPlayer'; // This component is not used, but kept for consistency
 import { StreamingBookModal } from './StreamingBookModal';
-import { ReportContentModal } from './ReportContentModal'; // Import the new modal
+import { ReportContentModal } from './ReportContentModal';
+import { PurchaseContentModal } from './PurchaseContentModal'; // Import the new modal
 import type { Database } from '../../lib/database.types';
 
-type Content = Database['public']['Tables']['content']['Row'];
-type Profile = Database['public']['Tables']['profiles']['Row'];
+type ContentPost = Database['public']['Tables']['content_posts']['Row'];
 
-interface ContentWithLike extends Content {
+interface ContentWithStatsAndStatus extends ContentPost {
   isLiked: boolean;
-  likes_count: number; // Add this
-  total_views: number; // Add this
+  isPurchased: boolean; // New field
+  likes_count: number;
+  views_count: number; // Changed from total_views to views_count for consistency with RPC
 }
 
 interface InfluencerData {
-  profile: Profile;
+  profile: Database['public']['Tables']['profiles']['Row'];
   subscription_price: number;
   instagram: string | null;
   twitter: string | null;
   tiktok: string | null;
-  total_subscribers: number; // Now dynamic
+  total_subscribers: number;
   is_subscribed: boolean;
   subscription_expires?: string;
 }
@@ -31,65 +32,35 @@ interface InfluencerData {
 export function InfluencerProfile({ influencerId, onBack }: { influencerId: string; onBack: () => void }) {
   const { profile: currentUser } = useAuth();
   const [influencer, setInfluencer] = useState<InfluencerData | null>(null);
-  const [contents, setContents] = useState<ContentWithLike[]>([]);
+  const [contents, setContents] = useState<ContentWithStatsAndStatus[]>([]);
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [showStreamingModal, setShowStreamingModal] = useState(false);
-  const [showReportModal, setShowReportModal] = useState(false); // State for report modal
-  const [selectedContentToReport, setSelectedContentToReport] = useState<string | null>(null); // State for content to report
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedContentToReport, setSelectedContentToReport] = useState<string | null>(null);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false); // State for purchase modal
+  const [selectedContentToPurchase, setSelectedContentToPurchase] = useState<ContentPost | null>(null); // State for content to purchase
   const [streamingEnabled, setStreamingEnabled] = useState(false);
-  const [selectedContent, setSelectedContent] = useState<number | null>(null);
+  const [selectedContentIndex, setSelectedContentIndex] = useState<number | null>(null); // Renamed to avoid conflict with content object
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadInfluencerData();
-    loadContents();
-    checkStreamingEnabled();
-
-    // Subscribe to subscription changes to update counter in real-time
-    const channel = supabase
-      .channel(`influencer_profile:${influencerId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'subscriptions',
-          filter: `influencer_id=eq.${influencerId}`,
-        },
-        () => {
-          loadInfluencerData();
-        }
-      )
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'content_likes',
-        filter: `content_id=in.(${contents.map(c => c.id).join(',')})`, // Only listen for likes on current content
-      },
-      () => {
-        loadContents(); // Reload likes count
-      }
-    )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [influencerId, contents.length]); // Added contents.length to dependency array to re-subscribe if content changes
-
-  const loadInfluencerData = async () => {
-    const { data: profileData } = await supabase
+  const loadInfluencerData = useCallback(async () => {
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
-      .select('*, influencer_profiles(subscription_price, instagram, twitter, tiktok, other_links)') // Removed total_subscribers from select
+      .select('*, influencer_profiles(subscription_price, instagram, twitter, tiktok, other_links)')
       .eq('id', influencerId)
+      .eq('account_status', 'approved') // Ensure only approved profiles are loaded
       .maybeSingle();
+
+    if (profileError) {
+      console.error('Error fetching influencer profile:', profileError.message);
+      setLoading(false);
+      return;
+    }
 
     let isSubscribed = false;
     let subscriptionExpires;
     if (currentUser) {
-      const { data: subData } = await supabase
+      const { data: subData, error: subError } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('subscriber_id', currentUser.id)
@@ -97,11 +68,14 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
         .eq('status', 'active')
         .maybeSingle();
 
+      if (subError) {
+        console.error('Error fetching subscription status:', subError.message);
+      }
+
       isSubscribed = !!subData;
       subscriptionExpires = subData?.expires_at;
     }
 
-    // Fetch dynamic subscriber count
     const { data: subscriberCountData, error: countError } = await supabase.rpc('get_influencer_subscriber_count', {
       p_influencer_id: influencerId,
     });
@@ -118,29 +92,36 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
         instagram: influencerProfile?.instagram || null,
         twitter: influencerProfile?.twitter || null,
         tiktok: influencerProfile?.tiktok || null,
-        total_subscribers: subscriberCountData || 0, // Use dynamic count
+        total_subscribers: subscriberCountData || 0,
         is_subscribed: isSubscribed,
         subscription_expires: subscriptionExpires,
       });
+    } else {
+      setInfluencer(null); // Influencer not found or not approved
     }
     setLoading(false);
-  };
+  }, [influencerId, currentUser]);
 
-  const loadContents = async () => {
-    const { data } = await supabase
-      .from('content')
+  const loadContents = useCallback(async () => {
+    const { data: contentPosts, error: contentError } = await supabase
+      .from('content_posts')
       .select(`
         *,
         likes_count:content_likes(count),
-        total_views:content_views(count)
+        views_count:content_views(count)
       `)
-      .eq('influencer_id', influencerId)
-      .eq('status', 'approved') // Only show approved content
+      .eq('user_id', influencerId)
+      .eq('status', 'approved')
       .order('created_at', { ascending: false });
 
-    if (data) {
-      const contentsWithLikesAndViews = await Promise.all(
-        data.map(async (content) => {
+    if (contentError) {
+      console.error('Error fetching content posts:', contentError);
+      return;
+    }
+
+    if (contentPosts) {
+      const contentsWithStatsAndStatus = await Promise.all(
+        contentPosts.map(async (content) => {
           const { data: likeData } = currentUser
             ? await supabase
                 .from('content_likes')
@@ -150,17 +131,88 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
                 .maybeSingle()
             : { data: null };
 
+          const { data: purchasedData } = currentUser
+            ? await supabase
+                .from('user_purchased_content')
+                .select('id')
+                .eq('content_id', content.id)
+                .eq('user_id', currentUser.id)
+                .maybeSingle()
+            : { data: null };
+
           return {
             ...content,
             isLiked: !!likeData,
+            isPurchased: !!purchasedData, // Set purchased status
             likes_count: content.likes_count[0]?.count || 0,
-            total_views: content.total_views[0]?.count || 0,
+            views_count: content.views_count[0]?.count || 0,
           };
         })
       );
-      setContents(contentsWithLikesAndViews);
+      setContents(contentsWithStatsAndStatus);
     }
-  };
+  }, [influencerId, currentUser]);
+
+  const checkStreamingEnabled = useCallback(async () => {
+    const { data } = await supabase
+      .from('streaming_settings')
+      .select('is_enabled')
+      .eq('influencer_id', influencerId)
+      .eq('is_enabled', true)
+      .maybeSingle();
+
+    setStreamingEnabled(!!data);
+  }, [influencerId]);
+
+  useEffect(() => {
+    loadInfluencerData();
+    loadContents();
+    checkStreamingEnabled();
+
+    const channel = supabase
+      .channel(`influencer_profile_updates:${influencerId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'subscriptions',
+          filter: `influencer_id=eq.${influencerId}`,
+        },
+        () => {
+          loadInfluencerData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'content_likes',
+          filter: `content_id=in.(${contents.map(c => c.id).join(',') || 'NULL'})`,
+        },
+        () => {
+          loadContents();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_purchased_content',
+          filter: `content_id=in.(${contents.map(c => c.id).join(',') || 'NULL'})`,
+        },
+        () => {
+          loadContents();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [influencerId, loadInfluencerData, loadContents, checkStreamingEnabled, contents.length]);
 
   const handleLike = async (contentId: string) => {
     if (!currentUser) return;
@@ -189,7 +241,6 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
   const handleStartConversation = async () => {
     if (!currentUser || !influencer) return;
 
-    // Check if a conversation already exists between these two users
     const { data: existingConversation, error: convError } = await supabase
       .from('conversations')
       .select('id')
@@ -205,7 +256,6 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
     if (existingConversation) {
       conversationId = existingConversation.id;
     } else {
-      // Create a new conversation
       const { data: newConversation, error: createConvError } = await supabase
         .from('conversations')
         .insert({
@@ -222,11 +272,10 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
       conversationId = newConversation.id;
     }
 
-    // Insert the initial message
     const { error: messageError } = await supabase.from('messages').insert({
       conversation_id: conversationId,
       sender_id: currentUser.id,
-      receiver_id: influencer.profile.id, // Explicitly set receiver_id
+      receiver_id: influencer.profile.id,
       content: 'Olá! Gostaria de conversar com você.',
     });
 
@@ -247,28 +296,16 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
         p_viewer_id: currentUser.id,
       });
 
-      // Update local state with new view count
       if (data !== null) {
         setContents(prev =>
           prev.map(c =>
-            c.id === contentId ? { ...c, total_views: data } : c
+            c.id === contentId ? { ...c, views_count: data } : c
           )
         );
       }
     } catch (error) {
       console.error('Error recording view:', error);
     }
-  };
-
-  const checkStreamingEnabled = async () => {
-    const { data } = await supabase
-      .from('streaming_settings')
-      .select('is_enabled')
-      .eq('influencer_id', influencerId)
-      .eq('is_enabled', true)
-      .maybeSingle();
-
-    setStreamingEnabled(!!data);
   };
 
   const handleReportContent = (contentId: string) => {
@@ -283,7 +320,7 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
       content_id: contentId,
       reporter_id: currentUser.id,
       reason: reason,
-      admin_notes: details, // Using admin_notes for user-provided details initially
+      admin_notes: details,
       status: 'pending',
     });
 
@@ -297,6 +334,11 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
     }
   };
 
+  const handlePurchaseContent = (content: ContentPost) => {
+    setSelectedContentToPurchase(content);
+    setShowPurchaseModal(true);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center text-primary text-lg py-12">
@@ -306,12 +348,17 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
   }
 
   if (!influencer) {
-    return <div className="text-center py-12 text-text">Influencer não encontrado</div>;
+    return <div className="text-center py-12 text-text">Influencer não encontrado ou não aprovado.</div>;
   }
 
-  const visibleContents = contents.filter(c =>
-    c.is_free || influencer.is_subscribed || c.influencer_id === currentUser?.id
-  );
+  // Determine if content is accessible
+  const isContentAccessible = (content: ContentWithStatsAndStatus) => {
+    if (content.is_free) return true;
+    if (influencer.is_subscribed) return true;
+    if (content.isPurchased) return true;
+    if (currentUser?.id === influencerId) return true; // Influencer can always see their own content
+    return false;
+  };
 
   return (
     <div>
@@ -442,55 +489,94 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
         <h2 className="text-2xl font-bold text-text">Conteúdo</h2>
       </div>
 
-      {visibleContents.length === 0 ? (
+      {contents.length === 0 ? (
         <div className="text-center py-12 bg-background rounded-xl border border-border">
           <p className="text-textSecondary">Nenhum conteúdo disponível ainda</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {visibleContents.map((content, index) => (
+          {contents.map((content, index) => (
             <div key={content.id} className="bg-background rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-border">
               <div
-                className="relative aspect-video bg-surface/50 cursor-pointer group"
-                onClick={() => {
-                  setSelectedContent(index);
-                  recordView(content.id);
-                }}
+                className="relative aspect-video bg-surface/50 group"
               >
-                {content.content_type === 'video' ? (
-                  <video
-                    src={content.media_url}
-                    className="w-full h-full object-cover"
-                    muted
-                    playsInline
-                  />
-                ) : (
-                  <img
-                    src={content.thumbnail_url || content.media_url}
-                    alt={content.title}
-                    className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = content.media_url;
-                    }}
-                  />
-                )}
-                {content.content_type === 'video' && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="bg-black bg-opacity-50 rounded-full p-4">
-                      <Play className="w-8 h-8 text-white" />
+                {isContentAccessible(content) ? (
+                  <div onClick={() => {
+                    setSelectedContentIndex(index);
+                    recordView(content.id);
+                  }} className="cursor-pointer">
+                    {content.type === 'video' ? (
+                      <video
+                        src={content.file_url}
+                        className="w-full h-full object-cover"
+                        muted
+                        playsInline
+                        poster={content.thumbnail_url || ''}
+                      />
+                    ) : (
+                      <img
+                        src={content.thumbnail_url || content.file_url}
+                        alt={content.title}
+                        className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = content.file_url;
+                        }}
+                      />
+                    )}
+                    {content.type === 'video' && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="bg-black bg-opacity-50 rounded-full p-4">
+                          <Play className="w-8 h-8 text-white" />
+                        </div>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center">
+                      <span className="text-white opacity-0 group-hover:opacity-100 font-semibold">
+                        Ver em tamanho completo
+                      </span>
                     </div>
                   </div>
-                )}
-                {content.is_free && (
-                  <div className="absolute top-2 right-2 bg-success text-white px-3 py-1 rounded-full text-xs font-semibold">
-                    Gratuito
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-background/70 text-textSecondary p-4">
+                    {content.type === 'video' ? <Video className="w-12 h-12 mb-2" /> : <ImageIcon className="w-12 h-12 mb-2" />}
+                    <p className="text-center text-sm font-medium">Conteúdo Exclusivo</p>
+                    {content.is_purchasable && !content.isPurchased && (
+                      <button
+                        onClick={() => handlePurchaseContent(content)}
+                        className="mt-3 flex items-center gap-1 bg-secondary text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-secondary/90 transition-colors"
+                      >
+                        <DollarSign className="w-4 h-4" /> Comprar por R$ {content.price.toFixed(2)}
+                      </button>
+                    )}
+                    {!content.is_purchasable && !influencer.is_subscribed && (
+                      <button
+                        onClick={() => setShowSubscribeModal(true)}
+                        className="mt-3 bg-accent text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-accent/90 transition-colors"
+                      >
+                        Assinar para ver
+                      </button>
+                    )}
                   </div>
                 )}
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center">
-                  <span className="text-white opacity-0 group-hover:opacity-100 font-semibold">
-                    Ver em tamanho completo
+
+                <div className="absolute top-2 right-2 flex gap-2">
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    content.is_free ? 'bg-success text-white' : 'bg-primary text-white'
+                  }`}>
+                    {content.is_free ? 'Gratuito' : 'Pago'}
                   </span>
+                  {content.is_purchasable && (
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-secondary text-white flex items-center gap-1">
+                      <DollarSign className="w-3 h-3" />
+                      {content.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </span>
+                  )}
+                  {content.isPurchased && (
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-success text-white">
+                      Comprado
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="p-4">
@@ -514,7 +600,7 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
                     </button>
                     <div className="flex items-center gap-1 text-textSecondary">
                       <Eye className="w-5 h-5" />
-                      <span className="text-sm font-semibold">{content.total_views || 0}</span>
+                      <span className="text-sm font-semibold">{content.views_count || 0}</span>
                     </div>
                   </div>
                   <button
@@ -537,21 +623,21 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
         </div>
       )}
 
-      {selectedContent !== null && visibleContents[selectedContent] && (
+      {selectedContentIndex !== null && contents[selectedContentIndex] && isContentAccessible(contents[selectedContentIndex]) && (
         <Lightbox
-          imageUrl={visibleContents[selectedContent].media_url}
-          title={visibleContents[selectedContent].title}
-          description={visibleContents[selectedContent].description || undefined}
-          likes={visibleContents[selectedContent].likes_count}
-          views={visibleContents[selectedContent].total_views || 0}
-          isLiked={visibleContents[selectedContent].isLiked}
-          isVideo={visibleContents[selectedContent].content_type === 'video'}
-          onClose={() => setSelectedContent(null)}
-          onLike={() => handleLike(visibleContents[selectedContent].id)}
-          onPrevious={selectedContent > 0 ? () => setSelectedContent(selectedContent - 1) : undefined}
-          onNext={selectedContent < visibleContents.length - 1 ? () => setSelectedContent(selectedContent + 1) : undefined}
-          hasPrevious={selectedContent > 0}
-          hasNext={selectedContent < visibleContents.length - 1}
+          imageUrl={contents[selectedContentIndex].file_url}
+          title={contents[selectedContentIndex].title}
+          description={contents[selectedContentIndex].description || undefined}
+          likes={contents[selectedContentIndex].likes_count}
+          views={contents[selectedContentIndex].views_count || 0}
+          isLiked={contents[selectedContentIndex].isLiked}
+          isVideo={contents[selectedContentIndex].type === 'video'}
+          onClose={() => setSelectedContentIndex(null)}
+          onLike={() => handleLike(contents[selectedContentIndex].id)}
+          onPrevious={selectedContentIndex > 0 ? () => setSelectedContentIndex(selectedContentIndex - 1) : undefined}
+          onNext={selectedContentIndex < contents.length - 1 ? () => setSelectedContentIndex(selectedContentIndex + 1) : undefined}
+          hasPrevious={selectedContentIndex > 0}
+          hasNext={selectedContentIndex < contents.length - 1}
         />
       )}
 
@@ -562,6 +648,7 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
           onSuccess={() => {
             setShowSubscribeModal(false);
             loadInfluencerData();
+            loadContents(); // Reload contents to update access status
           }}
         />
       )}
@@ -586,6 +673,25 @@ export function InfluencerProfile({ influencerId, onBack }: { influencerId: stri
             setSelectedContentToReport(null);
           }}
           onSubmit={handleReportSubmit}
+        />
+      )}
+
+      {showPurchaseModal && selectedContentToPurchase && (
+        <PurchaseContentModal
+          contentId={selectedContentToPurchase.id}
+          contentTitle={selectedContentToPurchase.title}
+          contentPrice={selectedContentToPurchase.price}
+          influencerId={influencerId}
+          onClose={() => {
+            setShowPurchaseModal(false);
+            setSelectedContentToPurchase(null);
+          }}
+          onSuccess={() => {
+            setShowPurchaseModal(false);
+            setSelectedContentToPurchase(null);
+            loadContents(); // Reload contents to show purchased status
+            alert('Conteúdo comprado com sucesso!');
+          }}
         />
       )}
     </div>
