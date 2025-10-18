@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { Users, DollarSign, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Users, DollarSign, Image as ImageIcon, Loader2, Clock, Eye, TrendingUp } from 'lucide-react';
 import { InfluencerProfile } from './InfluencerProfile';
 import type { Database } from '../../lib/database.types';
 
@@ -9,17 +9,19 @@ type Profile = Database['public']['Tables']['profiles']['Row'];
 type InfluencerProfileRow = Database['public']['Tables']['influencer_profiles']['Row'];
 
 interface InfluencerWithDetails extends Profile {
-  influencer_profiles: InfluencerProfileRow | null; // Ensure this can be null
+  influencer_profiles: InfluencerProfileRow | null;
   content_count: number;
   is_subscribed: boolean;
   total_subscribers: number;
+  total_views: number; // Added for 'most viewed' filter
 }
 
 export function InfluencerBrowser() {
-  const { profile: currentUserProfile } = useAuth(); // Renamed to avoid conflict with influencer.profile
+  const { profile: currentUserProfile } = useAuth();
   const [influencers, setInfluencers] = useState<InfluencerWithDetails[]>([]);
   const [selectedInfluencer, setSelectedInfluencer] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filter, setFilter] = useState<'recent' | 'subscribers' | 'views'>('recent'); // Default filter
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,6 +37,7 @@ export function InfluencerBrowser() {
           full_name,
           avatar_url,
           bio,
+          created_at,
           influencer_profiles (
             subscription_price,
             instagram,
@@ -52,7 +55,7 @@ export function InfluencerBrowser() {
 
       if (profilesData) {
         const influencersWithDetails = await Promise.all(
-          profilesData.map(async (inf: any) => { // inf is a Profile & { influencer_profiles: InfluencerProfileRow | null }
+          profilesData.map(async (inf: any) => {
             // Fetch content count
             const { count: contentCount, error: contentCountError } = await supabase
               .from('content_posts')
@@ -90,12 +93,22 @@ export function InfluencerBrowser() {
               console.error(`Error fetching subscriber count for ${inf.username}:`, countError.message);
             }
 
+            // Fetch total views using new RPC
+            const { data: totalViewsData, error: viewsError } = await supabase.rpc('get_influencer_total_views', {
+              p_influencer_id: inf.id,
+            });
+
+            if (viewsError) {
+              console.error(`Error fetching total views for ${inf.username}:`, viewsError.message);
+            }
+
             return {
               ...inf,
-              influencer_profiles: inf.influencer_profiles || null, // Ensure it's explicitly null if not found
+              influencer_profiles: inf.influencer_profiles || null,
               content_count: contentCount || 0,
               is_subscribed: isSubscribed,
               total_subscribers: subscriberCountData || 0,
+              total_views: totalViewsData || 0, // Assign total views
             };
           })
         );
@@ -107,17 +120,36 @@ export function InfluencerBrowser() {
     } finally {
       setLoading(false);
     }
-  }, [currentUserProfile]); // Depend on currentUserProfile to re-fetch when auth state changes
+  }, [currentUserProfile]);
 
   useEffect(() => {
     loadInfluencers();
-  }, [loadInfluencers]); // Depend on the memoized loadInfluencers
+  }, [loadInfluencers]);
 
-  const filteredInfluencers = influencers.filter(inf =>
-    inf.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    inf.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    inf.bio?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const sortedAndFilteredInfluencers = useMemo(() => {
+    let currentInfluencers = influencers.filter(inf =>
+      inf.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      inf.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      inf.bio?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    switch (filter) {
+      case 'recent':
+        currentInfluencers.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        break;
+      case 'subscribers':
+        currentInfluencers.sort((a, b) => b.total_subscribers - a.total_subscribers);
+        break;
+      case 'views':
+        currentInfluencers.sort((a, b) => b.total_views - a.total_views);
+        break;
+      default:
+        // No specific sorting, maintain original order or default to recent
+        currentInfluencers.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        break;
+    }
+    return currentInfluencers;
+  }, [influencers, searchTerm, filter]);
 
   if (selectedInfluencer) {
     return (
@@ -125,7 +157,7 @@ export function InfluencerBrowser() {
         influencerId={selectedInfluencer}
         onBack={() => {
           setSelectedInfluencer(null);
-          loadInfluencers(); // Reload influencers to update subscription status
+          loadInfluencers();
         }}
       />
     );
@@ -148,21 +180,48 @@ export function InfluencerBrowser() {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="Buscar influencers..."
-          className="w-full max-w-xl px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-text"
+          className="w-full max-w-xl px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-text mb-6"
         />
+
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={() => setFilter('recent')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors ${
+              filter === 'recent' ? 'bg-primary text-white' : 'bg-background text-textSecondary hover:bg-border'
+            }`}
+          >
+            <Clock className="w-5 h-5" /> Mais Recentes
+          </button>
+          <button
+            onClick={() => setFilter('subscribers')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors ${
+              filter === 'subscribers' ? 'bg-primary text-white' : 'bg-background text-textSecondary hover:bg-border'
+            }`}
+          >
+            <Users className="w-5 h-5" /> Mais Assinantes
+          </button>
+          <button
+            onClick={() => setFilter('views')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors ${
+              filter === 'views' ? 'bg-primary text-white' : 'bg-background text-textSecondary hover:bg-border'
+            }`}
+          >
+            <TrendingUp className="w-5 h-5" /> Mais Visualizados
+          </button>
+        </div>
       </div>
 
       {error && <p className="text-error text-center mb-4">{error}</p>}
 
-      {filteredInfluencers.length === 0 ? (
+      {sortedAndFilteredInfluencers.length === 0 ? (
         <div className="text-center py-12 bg-background rounded-xl">
           <Users className="w-16 h-16 text-textSecondary/70 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-text mb-2">Nenhum influencer encontrado</h3>
-          <p className="text-textSecondary">Tente buscar por outro termo ou verifique se há influencers aprovados.</p>
+          <p className="text-textSecondary">Tente buscar por outro termo ou verifique os filtros.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredInfluencers.map((influencer) => (
+          {sortedAndFilteredInfluencers.map((influencer) => (
             <div
               key={influencer.id}
               className="bg-background rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow cursor-pointer border border-border"
@@ -205,6 +264,10 @@ export function InfluencerBrowser() {
                   <div className="flex items-center gap-1">
                     <ImageIcon className="w-4 h-4" />
                     <span>{influencer.content_count} posts</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Eye className="w-4 h-4" />
+                    <span>{influencer.total_views} visualizações</span>
                   </div>
                 </div>
 
