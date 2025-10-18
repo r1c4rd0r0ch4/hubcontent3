@@ -1,104 +1,117 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { Users, DollarSign, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { InfluencerProfile } from './InfluencerProfile';
+import type { Database } from '../../lib/database.types';
 
-interface InfluencerWithDetails {
-  id: string;
-  username: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  bio: string | null;
-  influencer_profiles: {
-    subscription_price: number;
-    instagram: string | null;
-    twitter: string | null;
-    tiktok: string | null;
-  };
+type Profile = Database['public']['Tables']['profiles']['Row'];
+type InfluencerProfileRow = Database['public']['Tables']['influencer_profiles']['Row'];
+
+interface InfluencerWithDetails extends Profile {
+  influencer_profiles: InfluencerProfileRow | null; // Ensure this can be null
   content_count: number;
   is_subscribed: boolean;
   total_subscribers: number;
 }
 
 export function InfluencerBrowser() {
-  const { profile } = useAuth();
+  const { profile: currentUserProfile } = useAuth(); // Renamed to avoid conflict with influencer.profile
   const [influencers, setInfluencers] = useState<InfluencerWithDetails[]>([]);
   const [selectedInfluencer, setSelectedInfluencer] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadInfluencers = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          username,
+          full_name,
+          avatar_url,
+          bio,
+          influencer_profiles (
+            subscription_price,
+            instagram,
+            twitter,
+            tiktok
+          )
+        `)
+        .eq('user_type', 'influencer')
+        .eq('account_status', 'approved')
+        .eq('is_active', true);
+
+      if (profilesError) {
+        throw profilesError;
+      }
+
+      if (profilesData) {
+        const influencersWithDetails = await Promise.all(
+          profilesData.map(async (inf: any) => { // inf is a Profile & { influencer_profiles: InfluencerProfileRow | null }
+            // Fetch content count
+            const { count: contentCount, error: contentCountError } = await supabase
+              .from('content_posts')
+              .select('id', { count: 'exact' })
+              .eq('user_id', inf.id)
+              .eq('status', 'approved');
+
+            if (contentCountError) {
+              console.error(`Error fetching content count for ${inf.username}:`, contentCountError.message);
+            }
+
+            // Check subscription status
+            let isSubscribed = false;
+            if (currentUserProfile) {
+              const { data: subData, error: subError } = await supabase
+                .from('subscriptions')
+                .select('id')
+                .eq('subscriber_id', currentUserProfile.id)
+                .eq('influencer_id', inf.id)
+                .eq('status', 'active')
+                .maybeSingle();
+
+              if (subError) {
+                console.error(`Error fetching subscription status for ${inf.username}:`, subError.message);
+              }
+              isSubscribed = !!subData;
+            }
+
+            // Fetch dynamic subscriber count using RPC
+            const { data: subscriberCountData, error: countError } = await supabase.rpc('get_influencer_subscriber_count', {
+              p_influencer_id: inf.id,
+            });
+
+            if (countError) {
+              console.error(`Error fetching subscriber count for ${inf.username}:`, countError.message);
+            }
+
+            return {
+              ...inf,
+              influencer_profiles: inf.influencer_profiles || null, // Ensure it's explicitly null if not found
+              content_count: contentCount || 0,
+              is_subscribed: isSubscribed,
+              total_subscribers: subscriberCountData || 0,
+            };
+          })
+        );
+        setInfluencers(influencersWithDetails);
+      }
+    } catch (err: any) {
+      console.error('Error loading influencers:', err.message);
+      setError('Falha ao carregar influencers: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentUserProfile]); // Depend on currentUserProfile to re-fetch when auth state changes
 
   useEffect(() => {
     loadInfluencers();
-  }, [profile]);
-
-  const loadInfluencers = async () => {
-    setLoading(true);
-    const { data: profilesData, error } = await supabase
-      .from('profiles')
-      .select(`
-        id,
-        username,
-        full_name,
-        avatar_url,
-        bio,
-        influencer_profiles (
-          subscription_price,
-          instagram,
-          twitter,
-          tiktok
-        )
-      `)
-      .eq('user_type', 'influencer')
-      .eq('account_status', 'approved') // Only fetch approved influencers
-      .eq('is_active', true);
-
-    if (!error && profilesData) {
-      const influencersWithDetails = await Promise.all(
-        profilesData.map(async (inf: any) => {
-          const { count: contentCount } = await supabase
-            .from('content_posts') // Changed from 'content' to 'content_posts'
-            .select('id', { count: 'exact' })
-            .eq('user_id', inf.id) // Changed from 'influencer_id' to 'user_id'
-            .eq('status', 'approved'); // Only count approved content
-
-          let isSubscribed = false;
-          if (profile) {
-            const { data: subData } = await supabase
-              .from('subscriptions')
-              .select('id')
-              .eq('subscriber_id', profile.id)
-              .eq('influencer_id', inf.id)
-              .eq('status', 'active')
-              .maybeSingle();
-
-            isSubscribed = !!subData;
-          }
-
-          // Fetch dynamic subscriber count
-          const { data: subscriberCountData, error: countError } = await supabase.rpc('get_influencer_subscriber_count', {
-            p_influencer_id: inf.id,
-          });
-
-          if (countError) {
-            console.error('Error fetching subscriber count:', countError);
-          }
-
-          return {
-            ...inf,
-            content_count: contentCount || 0,
-            is_subscribed: isSubscribed,
-            total_subscribers: subscriberCountData || 0, // Use dynamic count
-          };
-        })
-      );
-
-      setInfluencers(influencersWithDetails);
-    } else if (error) {
-      console.error('Error loading influencers:', error.message);
-    }
-    setLoading(false);
-  };
+  }, [loadInfluencers]); // Depend on the memoized loadInfluencers
 
   const filteredInfluencers = influencers.filter(inf =>
     inf.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -139,11 +152,13 @@ export function InfluencerBrowser() {
         />
       </div>
 
+      {error && <p className="text-error text-center mb-4">{error}</p>}
+
       {filteredInfluencers.length === 0 ? (
         <div className="text-center py-12 bg-background rounded-xl">
           <Users className="w-16 h-16 text-textSecondary/70 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-text mb-2">Nenhum influencer encontrado</h3>
-          <p className="text-textSecondary">Tente buscar por outro termo</p>
+          <p className="text-textSecondary">Tente buscar por outro termo ou verifique se há influencers aprovados.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -196,7 +211,7 @@ export function InfluencerBrowser() {
                 <div className="flex items-center justify-between pt-4 border-t border-border">
                   <div className="flex items-center gap-2 text-success font-semibold">
                     <DollarSign className="w-5 h-5" />
-                    <span>R$ {influencer.influencer_profiles.subscription_price.toFixed(2)}/mês</span>
+                    <span>R$ {influencer.influencer_profiles?.subscription_price?.toFixed(2) || '0.00'}/mês</span>
                   </div>
                   <button
                     onClick={(e) => {

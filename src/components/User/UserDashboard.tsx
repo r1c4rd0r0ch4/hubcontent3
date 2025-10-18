@@ -5,7 +5,7 @@ import type { Database } from '../../lib/database.types';
 import { Users, Sparkles, ShoppingCart, Loader2, Eye, Heart, User, Edit } from 'lucide-react';
 
 type Subscription = Database['public']['Tables']['subscriptions']['Row'];
-type Content = Database['public']['Tables']['content']['Row'];
+type Content = Database['public']['Tables']['content_posts']['Row']; // Corrected type to content_posts
 type InfluencerProfile = Database['public']['Tables']['influencer_profiles']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -68,14 +68,12 @@ export function UserDashboard() {
     setLoadingPurchasedContent(true);
     try {
       const { data, error } = await supabase
-        .from('purchased_content')
+        .from('user_purchased_content') // Changed to user_purchased_content
         .select(`
-          content (
+          content_posts (
             *,
-            influencer_profiles (
-              profiles (
-                username
-              )
+            profiles (
+              username
             )
           )
         `)
@@ -83,8 +81,8 @@ export function UserDashboard() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      // Extract content objects from the nested structure
-      const contentItems = data?.map(pc => pc.content).filter(Boolean) as Content[] || [];
+      // Extract content_posts objects from the nested structure
+      const contentItems = data?.map(pc => pc.content_posts).filter(Boolean) as Content[] || [];
       setPurchasedContent(contentItems);
     } catch (err: any) {
       console.error('Error fetching purchased content:', err.message);
@@ -207,7 +205,7 @@ export function UserDashboard() {
                       <div>
                         <p className="text-xl font-semibold text-text">@{influencer?.username || 'Influenciador Desconhecido'}</p>
                         <p className="text-sm text-textSecondary">Status: <span className={`capitalize font-medium ${sub.status === 'active' ? 'text-success' : sub.status === 'pending' ? 'text-warning' : 'text-error'}`}>{sub.status}</span></p>
-                        <p className="text-xs text-textSecondary">Desde: {new Date(sub.start_date).toLocaleDateString()}</p>
+                        <p className="text-xs text-textSecondary">Desde: {new Date(sub.created_at).toLocaleDateString()}</p>
                       </div>
                     </div>
                   );
@@ -231,17 +229,19 @@ export function UserDashboard() {
             {!loadingPurchasedContent && purchasedContent.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {purchasedContent.map((item) => {
-                  const influencerUsername = (item.influencer_profiles as { profiles: { username: string } })?.profiles?.username;
+                  const influencerUsername = (item.profiles as { username: string })?.username;
                   return (
                     <div key={item.id} className="bg-surface rounded-xl shadow-lg border border-border overflow-hidden">
-                      <img src={item.thumbnail_url || item.media_url} alt={item.title} className="w-full h-48 object-cover" />
+                      <img src={item.thumbnail_url || item.file_url} alt={item.title} className="w-full h-48 object-cover" />
                       <div className="p-4">
                         <h4 className="text-lg font-semibold text-text mb-2">{item.title}</h4>
                         <p className="text-sm text-textSecondary mb-1">Por: @{influencerUsername || 'Desconhecido'}</p>
                         <p className="text-sm text-textSecondary mb-3 line-clamp-2">{item.description}</p>
                         <div className="flex items-center justify-between text-textSecondary text-sm">
-                          <span className="flex items-center gap-1"><Eye size={16} /> {item.total_views}</span>
-                          <span className="flex items-center gap-1"><Heart size={16} /> {item.likes_count}</span>
+                          {/* These counts are not directly available on the content_posts object from purchased_content join */}
+                          {/* You might need to fetch them separately or adjust the query if needed */}
+                          <span className="flex items-center gap-1"><Eye size={16} /> {0}</span> {/* Placeholder */}
+                          <span className="flex items-center gap-1"><Heart size={16} /> {0}</span> {/* Placeholder */}
                         </div>
                       </div>
                     </div>
